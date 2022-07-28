@@ -13,10 +13,10 @@ rcvar=${name}_enable
 load_rc_config $name
 : ${storjupd_enable:=yes}
 : ${storjupd_executable:="/usr/local/bin/storagenode-updater"}
-: ${storjupd_config_dir="/root/.local/share/storj/storagenode"}
-: ${storjupd_identity_dir="/root/.local/share/storj/identity/storagenode"}
-: ${storjupd_node_binary_location="/usr/local/bin/storagenode"}
-: ${storjupd_node_service_name="storj"}
+: ${storjupd_config_dir:="/root/.local/share/storj/storagenode"}
+: ${storjupd_identity_dir:="/root/.local/share/storj/identity/storagenode"}
+: ${storjupd_node_binary_location:="/usr/local/bin/storagenode"}
+: ${storjupd_node_service_name:="storj"}
 
 pidfile="/var/run/${name}.pid"
 command="/usr/sbin/daemon"
