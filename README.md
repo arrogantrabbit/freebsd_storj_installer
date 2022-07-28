@@ -11,5 +11,15 @@ To use: clone the repo, edit the top of the install.sh to specify your data:
 - `STORAGE_PATH` -- path where the storage is mounted.
 - `NETWAIT_IP` -- IP address of a host to be used for network connectivity testing.
 - `CONSOLE_ADDRESS` -- optional interface and port where to run console. Omitting inteface address will listen on all interfaces.
+- `VERSION` -- which version of storagenode to download from https://github.com/storj/storj/releases
+
+Then run the install script. 
+
+The script will initialize the identity, authorize it with the token, and init storage. 
+
+Then it will create two rc services: `storj` and `storjupd`. The former one is storagenode, the latter one is updater.
+
+Use `service` utility to control them. For example, `service storj start` or `service storj status`
+
 
 
