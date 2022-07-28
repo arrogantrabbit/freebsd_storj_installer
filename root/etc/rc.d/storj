@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# PROVIDE: storj
+# REQUIRE: LOGIN FILESYSTEMS netwait
+# KEYWORD: SHUTDOWN
+
+. /etc/rc.subr
+
+name=storj
+rcvar=storj_enable
+
+
+load_rc_config $name
+: ${storj_enable:=yes}
+: ${storj_executable="/usr/local/bin/storagenode"}
+: ${storj_msg="Nothing started."}
+: ${storj_config_dir="/root/.local/share/storj/storagenode"}
+: ${storj_identity_dir="/root/.local/share/storj/identity/storagenode"}
+: ${storj_storage_path="/mnt/storj"}
+: ${storj_contact_external_address="example.com:28967"}
+: ${storj_console_address=":14002"}
+: ${storj_operator_email="user@example.com"}
+: ${storj_operator_wallet=""}
+: ${storj_operator_wallet_features=""}
+
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-r -f -H -o \"/var/log/${name}.log\" \
+    -P \"${pidfile}\" -u root \"${storj_executable}\" run \
+    --config-dir \"${storj_config_dir}\" \
+    --identity-dir \"${storj_identity_dir}\"\
+    --log.level info --log.output stdout \
+    --console.address \"${storj_console_address}\" \
+    --contact.external-address \"${storj_contact_external_address}\" \
+    --operator.email \"${storj_operator_email}\" \
+    --operator.wallet \"${storj_operator_wallet}\" \
+    --operator.wallet-features \"${storj_operator_wallet_features}\" \
+    --storage.path \"${storj_storage_path}\""
+
+required_dirs="${storj_storage_path}/blobs"
+
+run_rc_command "$1"
