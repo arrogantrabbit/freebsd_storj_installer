@@ -14,9 +14,11 @@ To use: clone the repo, edit the top of the install.sh to specify your data:
 
 Then run the install script. 
 
-The script will initialize the identity, authorize it with the token, and init storage. 
+The script will peform the following: 
 
-Then it will create two rc services: `storj` and `storjupd`. The former one is storagenode, the latter one is updater.
+- determine the suggested version of storage node as defined by https://version.storj.io, download, and install the executables.
+- initialize the identity, authorize it with the token, and init storage. 
+- create and start two rc services: `storj` and `storjupd`. The former one is storagenode, the latter one is updater.
 
 Use `service` utility to control them. For example, `service storj start` or `service storj status`
 
