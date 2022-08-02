@@ -21,5 +21,6 @@ Then it will create two rc services: `storj` and `storjupd`. The former one is s
 
 Use `service` utility to control them. For example, `service storj start` or `service storj status`
 
-
+Note on storagenode-updater: As of today, storagenode updater does not know how to restart the service on freebsd. While it successfuly updates the executable, the old one continues running.
+Until the situation changes we include a simple shell script instead of storagenode-updater that ignores input parameters and simply does the job.
 
