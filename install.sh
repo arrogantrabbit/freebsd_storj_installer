@@ -30,7 +30,7 @@ fi
 pkg install -y jq curl
 
 # NOTE on storagenode-updater. As of today, storagenode updater does not know how to restart the service on freebsd. While it successfuly updates the executable it continues running the old one.
-# Until the situation changes we include a simple shell script instead of storage node updater that ignores input parameters and simply does the job.
+# Until the situation changes we include a simple shell script instead of storage node updater that ignores input parameters and simply does the job. When this changes, uncommnent the STORAGENODE_UPDATER_XXX related code below.
 
 
 HOME="/root"
