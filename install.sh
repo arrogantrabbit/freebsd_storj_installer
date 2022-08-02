@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# version of storj to download
-VERSION="v1.58.2"
-
 # Identity token <email:hash>
 IDENTITY_AUTH_TOKEN="CHANGE_ME"
 # External address and port, setup port forwarding as needed
@@ -27,7 +24,7 @@ fi
 
 # Prerequisities
 
-pkg install -y jq curl
+pkg install -y jq curl unzip
 
 # NOTE on storagenode-updater. As of today, storagenode updater does not know how to restart the service on freebsd. While it successfuly updates the executable it continues running the old one.
 # Until the situation changes we include a simple shell script instead of storage node updater that ignores input parameters and simply does the job. When this changes, uncommnent the STORAGENODE_UPDATER_XXX related code below.
@@ -39,11 +36,31 @@ IDENTITY_CONFIG_DIR="${HOME}/.local/share/storj/identity"
 IDENTITY_IDENTITY_DIR="${HOME}/.local/share/storj/identity"
 STORAGNODE_CONFIG_DIR="${HOME}/.local/share/storj/storagenode"
 STORAGNODE_IDENTITY_DIR="${HOME}/.local/share/storj/identity/storagenode"
+STORJ_VERSION_CHECK_URL="https://version.storj.io"
 
-STORAGENODE_URL="https://github.com/storj/storj/releases/download/${VERSION}/storagenode_freebsd_amd64.zip"
 
-#STORAGENODE_UPDATER_URL="https://github.com/storj/storj/releases/download/${VERSION}/storagenode-updater_freebsd_amd64.zip"
-IDENTITY_URL="https://github.com/storj/storj/releases/download/${VERSION}/identity_freebsd_amd64.zip"
+# figure out suggested version and URL:
+SUGGESTION=$(curl -L "${STORJ_VERSION_CHECK_URL}" 2>/dev/null | jq -r '.processes.storagenode.suggested')
+VERSION=$(echo "${SUGGESTION}" | jq -r '.version')
+
+if [ -z "${VERSION}" ]; then
+    echo "Failed to determine suggested version"
+    exit 1
+fi
+
+echo "Suggested STORJ version: v${VERSION}"
+
+STORAGENODE_URL=$(echo "${SUGGESTION}" | jq -r '.url' | sed "s/[{]arch[}]/amd64/g" | sed "s/[{]os[}]/freebsd/g")
+ 
+if [ -z "${STORAGENODE_URL}" ]; then
+    echo "Failed to determine suggested storage node download URL"
+    exit 1
+fi
+
+echo "Storagenode download URL: ${STORAGENODE_URL}"
+
+#STORAGENODE_UPDATER_URL="https://github.com/storj/storj/releases/download/v${VERSION}/storagenode-updater_freebsd_amd64.zip"
+IDENTITY_URL="https://github.com/storj/storj/releases/download/v${VERSION}/identity_freebsd_amd64.zip"
 
 mkdir -p /tmp/${VERSION}
 
