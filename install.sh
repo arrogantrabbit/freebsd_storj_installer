@@ -120,7 +120,6 @@ if [ ! -f "${HOME}/.local/share/storj/storagenode/config.yaml" ]; then
 fi
 
 
-
 echo "Configuring netwait to wait for ${NETWAIT_IP}"
 sysrc netwait_ip="${NETWAIT_IP}"
 
@@ -140,6 +139,6 @@ service netwait enable
 
 echo "Starting services"
 
-#service storj start
-#service storjupd start
+service storj start
+service storjupd start
 service newsyslog start
