@@ -11,7 +11,6 @@ To use: clone the repo, edit the top of the install.sh to specify your data:
 - `STORAGE_PATH` -- path where the storage is mounted.
 - `NETWAIT_IP` -- IP address of a host to be used for network connectivity testing.
 - `CONSOLE_ADDRESS` -- optional interface and port where to run console. Omitting inteface address will listen on all interfaces.
-- `VERSION` -- which version of storagenode to download from https://github.com/storj/storj/releases
 
 Then run the install script. 
 
