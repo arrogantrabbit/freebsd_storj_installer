@@ -17,12 +17,12 @@ OPERATOR_WALLET_FEATURES=""
 STORAGE_PATH="/mnt/storj"
 
 # ip to ping for network connectivity test
-NETWAIT_IP=1.1.1.1
+NETWAIT_IP="1.1.1.1"
 
 # Where to run console
 CONSOLE_ADDRESS=":14002"
 
-if [ "$IDENTITY_AUTH_TOKEN" == "CHANGE_ME" ]; then
+if [ "$IDENTITY_AUTH_TOKEN" = "CHANGE_ME" ]; then
   echo "Edit the script and specify required parameters:"
   echo "IDENTITY_AUTH_TOKEN, CONTACT_EXTERNAL_ADDRESS, OPERATOR_EMAIL, OPERATOR_WALLET, STORAGE_PATH"
   exit 1
@@ -115,7 +115,7 @@ else
   echo "Identity found in ${IDENTITY_DIR}"
 fi
 
-if [ "0" == "$(find "${IDENTITY_DIR}/storagenode" -name "identity.*.cert" | wc -l)" ]; then
+if [ "0" = "$(find "${IDENTITY_DIR}/storagenode" -name "identity.*.cert" | wc -l)" ]; then
   echo "Authorizing the storage node with identity ${IDENTITY_AUTH_TOKEN}"
   identity authorize storagenode "${IDENTITY_AUTH_TOKEN}" --config-dir "${CONFIG_DIR}" --identity-dir "${IDENTITY_DIR}" || exit 1
 else
