@@ -115,19 +115,19 @@ else
   echo "Identity found in ${IDENTITY_DIR}"
 fi
 
-if [ "0" = "$(find "${IDENTITY_DIR}/storagenode" -name "identity.*.cert" | wc -l)" ]; then
+if [ 0 -eq $(find "${IDENTITY_DIR}/storagenode" -name "identity.*.cert" | wc -l) ]; then
   echo "Authorizing the storage node with identity ${IDENTITY_AUTH_TOKEN}"
   identity authorize storagenode "${IDENTITY_AUTH_TOKEN}" --config-dir "${CONFIG_DIR}" --identity-dir "${IDENTITY_DIR}" || exit 1
 else
   echo "Identity is already authorized for at least one token."
 fi
 
-if [ "2" != "$(grep -c BEGIN ${IDENTITY_DIR}/storagenode/ca.cert)" ]; then
+if [ 2 -ne $(grep -c BEGIN ${IDENTITY_DIR}/storagenode/ca.cert) ]; then
   echo "Bad Identity: ca.cert"
   exit 1
 fi
 
-if [ "3" != "$(grep -c BEGIN ${IDENTITY_DIR}/storagenode/identity.cert)" ]; then
+if [ 3 -ne $(grep -c BEGIN ${IDENTITY_DIR}/storagenode/identity.cert) ]; then
   echo "Bad Identity: identity.cert"
   exit 1
 fi
