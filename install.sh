@@ -2,17 +2,23 @@
 
 # Identity token <email:hash>
 IDENTITY_AUTH_TOKEN="CHANGE_ME"
+
 # External address and port, setup port forwarding as needed
-CONTACT_EXTERNAL_ADDRESS="localhost:28968"
+CONTACT_EXTERNAL_ADDRESS="example.com:28968"
+
 # Operator email address
-OPERATOR_EMAIL="test@saspus.com"
+OPERATOR_EMAIL="user@example.com"
+
 # Wallet
-OPERATOR_WALLET="0x0eC33087AFfed2924aB01579abc2c471BC6Da13C"
+OPERATOR_WALLET="0x0e......02f"
 OPERATOR_WALLET_FEATURES=""
+
 # Location where the store will be initialized.
 STORAGE_PATH="/mnt/storj"
+
 # ip to ping for network connectivity test
-NETWAIT_IP=10.0.17.1
+NETWAIT_IP=1.1.1.1
+
 # Where to run console
 CONSOLE_ADDRESS=":14002"
 
