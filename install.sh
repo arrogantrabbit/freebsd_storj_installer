@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Identity token <email:hash>
-IDENTITY_AUTH_TOKEN="test@saspus.com:1Rj3ejbUnsR5nUhepS4EqQhqfTdEqRaijthVnDwkFzFSwbMBb61U6gchs4GyYyNft7bx9Av2ruxbUYjwDyBHWSy7W1p378"
+IDENTITY_AUTH_TOKEN="CHANGE_ME"
 # External address and port, setup port forwarding as needed
 CONTACT_EXTERNAL_ADDRESS="localhost:28968"
 # Operator email address
