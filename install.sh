@@ -11,7 +11,7 @@ OPERATOR_EMAIL="user@example.com"
 
 # Wallet
 OPERATOR_WALLET="0x0e......02f"
-OPERATOR_WALLET_FEATURES=""
+OPERATOR_WALLET_FEATURES='["zksync"]'
 
 # Location where the store will be initialized.
 STORAGE_PATH="/mnt/storj"
