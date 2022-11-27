@@ -22,6 +22,9 @@ NETWAIT_IP="1.1.1.1"
 # Where to run console
 CONSOLE_ADDRESS=":14002"
 
+# How much space to allocate
+STORAGE_ALLOCATED_DISK_SPACE="1.00 TB"
+
 if [ "$IDENTITY_AUTH_TOKEN" = "CHANGE_ME" ]; then
   echo "Edit the script and specify required parameters:"
   echo "IDENTITY_AUTH_TOKEN, CONTACT_EXTERNAL_ADDRESS, OPERATOR_EMAIL, OPERATOR_WALLET, STORAGE_PATH"
@@ -151,7 +154,8 @@ if [ ! -f "${CONFIG_FILE}" ]; then
     --console.address "${CONSOLE_ADDRESS}" \
     --operator.wallet "${OPERATOR_WALLET}" \
     --operator.wallet-features "${OPERATOR_WALLET_FEATURES}" \
-    --contact.external-address "${CONTACT_EXTERNAL_ADDRESS}"
+    --contact.external-address "${CONTACT_EXTERNAL_ADDRESS}" \
+    --storage.allocated-disk-space "${STORAGE_ALLOCATED_DISK_SPACE}"
 fi
 
 echo "Configuring netwait to wait for ${NETWAIT_IP}"

@@ -24,7 +24,7 @@ command_args="-r -f -H -o \"/var/log/${name}.log\" \
     -P \"${pidfile}\" -u root \"${storj_executable}\" run \
     --config-dir \"${storj_config_dir}\" \
     --identity-dir \"${storj_identity_dir}\"\
-    --log.level info --log.output stdout \
+    --log.output stdout \
     --storage.path \"${storj_storage_path}\""
 
 required_dirs="${storj_storage_path}/blobs"
