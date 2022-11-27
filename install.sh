@@ -28,14 +28,14 @@ if [ "$IDENTITY_AUTH_TOKEN" = "CHANGE_ME" ]; then
   exit 1
 fi
 
-if [ ! -d "${STORAGE_PATH}" ]; then
-  echo "Storage path is not accessible"
+if [ ! -w "${STORAGE_PATH}" ]; then
+  echo "Storage path is not writable"
   exit 1
 fi
 
-IDENTITY_DIR="${STORAGE_PATH}/identity"
+IDENTITY_ROOT="${STORAGE_PATH}/identity"
 CONFIG_DIR="${STORAGE_PATH}/config"
-mkdir -p "${CONFIG_DIR}" "${IDENTITY_DIR}" || exit 1
+mkdir -p "${CONFIG_DIR}" "${IDENTITY_ROOT}" || exit 1
 
 # Prerequisites
 pkg install -y jq curl unzip || exit 1
@@ -78,8 +78,8 @@ STORAGENODE_ZIP=/tmp/${VERSION}/$(basename "${STORAGENODE_URL}")
 TARGET_BIN_DIR="/usr/local/bin"
 
 fetch() {
-  what=$1
-  where=$2
+  what="${1}"
+  where="${2}"
 
   if [ ! -f "${where}" ] ; then
     echo "Downloading ${what} from ${where}"
@@ -108,46 +108,60 @@ unzip -d "${TARGET_BIN_DIR}" -o "${IDENTITY_ZIP}"
 unzip -d "${TARGET_BIN_DIR}" -o "${STORAGENODE_ZIP}"
 #unzip -d "${TARGET_BIN_DIR}" -o "${STORAGENODE_UPDATER_ZIP}"
 
-if [ ! -f "${IDENTITY_DIR}/storagenode/identity.cert" ]; then
+IDENTITY_DIR="${IDENTITY_ROOT}/storagenode"
+
+if [ ! -f "${IDENTITY_DIR}/identity.cert" ]; then
   echo "Generating new identity"
-  identity create storagenode --config-dir "${CONFIG_DIR}" --identity-dir "${IDENTITY_DIR}" || exit 1
+  identity create storagenode \
+    --config-dir "${CONFIG_DIR}" \
+    --identity-dir "${IDENTITY_ROOT}" \
+    || exit 1
 else
   echo "Identity found in ${IDENTITY_DIR}"
 fi
 
-if [ 0 -eq $(find "${IDENTITY_DIR}/storagenode" -name "identity.*.cert" | wc -l) ]; then
+if [ 0 -eq $(find "${IDENTITY_DIR}" -name "identity.*.cert" | wc -l) ]; then
   echo "Authorizing the storage node with identity ${IDENTITY_AUTH_TOKEN}"
-  identity authorize storagenode "${IDENTITY_AUTH_TOKEN}" --config-dir "${CONFIG_DIR}" --identity-dir "${IDENTITY_DIR}" || exit 1
+  identity authorize storagenode "${IDENTITY_AUTH_TOKEN}" \
+    --config-dir "${CONFIG_DIR}" \
+    --identity-dir "${IDENTITY_ROOT}" \
+    || exit 1
 else
   echo "Identity is already authorized for at least one token."
 fi
 
-if [ 2 -ne $(grep -c BEGIN ${IDENTITY_DIR}/storagenode/ca.cert) ]; then
+if [ 2 -ne $(grep -c BEGIN ${IDENTITY_DIR}/ca.cert) ]; then
   echo "Bad Identity: ca.cert"
   exit 1
 fi
 
-if [ 3 -ne $(grep -c BEGIN ${IDENTITY_DIR}/storagenode/identity.cert) ]; then
+if [ 3 -ne $(grep -c BEGIN ${IDENTITY_DIR}/identity.cert) ]; then
   echo "Bad Identity: identity.cert"
   exit 1
 fi
 
-if [ ! -f "${CONFIG_DIR}/config.yaml" ]; then
-  storagenode setup --storage.path "${STORAGE_PATH}" --config-dir "${CONFIG_DIR}" --identity-dir "${IDENTITY_DIR}/storagenode"
+CONFIG_FILE="${CONFIG_DIR}/config.yaml"
+
+if [ ! -f "${CONFIG_FILE}" ]; then
+  storagenode setup \
+    --storage.path "${STORAGE_PATH}" \
+    --config-dir "${CONFIG_DIR}" \
+    --identity-dir "${IDENTITY_DIR}" \
+    --operator.email "${OPERATOR_EMAIL}" \
+    --console.address "${CONSOLE_ADDRESS}" \
+    --operator.wallet "${OPERATOR_WALLET}" \
+    --operator.wallet-features "${OPERATOR_WALLET_FEATURES}" \
+    --contact.external-address "${CONTACT_EXTERNAL_ADDRESS}"
 fi
 
 echo "Configuring netwait to wait for ${NETWAIT_IP}"
 sysrc netwait_ip="${NETWAIT_IP}"
 
 echo "Configuring storj"
-sysrc storj_console_address="${CONSOLE_ADDRESS}"
-sysrc storj_operator_email="${OPERATOR_EMAIL}"
-sysrc storj_operator_wallet="${OPERATOR_WALLET}"
-sysrc storj_operator_wallet_features="${OPERATOR_WALLET_FEATURES}"
-sysrc storj_storage_path="${STORAGE_PATH}"
-sysrc storj_identity_dir="${IDENTITY_DIR}/storagenode"
+sysrc storj_identity_dir="${IDENTITY_DIR}"
 sysrc storj_config_dir="${CONFIG_DIR}"
-sysrc storj_contact_external_address="${CONTACT_EXTERNAL_ADDRESS}"
+# This is needed to prevent the service from starting if the storage is not mounted.
+sysrc storj_storage_path="${STORAGE_PATH}"
 
 echo "Enabling services"
 service storj enable
