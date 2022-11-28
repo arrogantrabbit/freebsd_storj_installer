@@ -136,12 +136,12 @@ else
   echo "Identity is already authorized for at least one token."
 fi
 
-if [ 2 -ne "$(grep -c BEGIN ${IDENTITY_DIR}/ca.cert)" ]; then
+if [ 2 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/ca.cert")" ]; then
   echo "Bad Identity: ca.cert"
   exit 1
 fi
 
-if [ 3 -ne "$(grep -c BEGIN ${IDENTITY_DIR}/identity.cert)" ]; then
+if [ 3 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/identity.cert")" ]; then
   echo "Bad Identity: identity.cert"
   exit 1
 fi
