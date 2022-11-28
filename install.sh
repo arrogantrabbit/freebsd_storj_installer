@@ -25,6 +25,9 @@ CONSOLE_ADDRESS=":14002"
 # How much space to allocate
 STORAGE_ALLOCATED_DISK_SPACE="1.00 TB"
 
+## Should not need to change anything beyond this line
+## ---------------------------------------------------
+
 if [ "$IDENTITY_AUTH_TOKEN" = "CHANGE_ME" ]; then
   echo "Edit the script and specify required parameters:"
   echo "IDENTITY_AUTH_TOKEN, CONTACT_EXTERNAL_ADDRESS, OPERATOR_EMAIL, OPERATOR_WALLET, STORAGE_PATH"
