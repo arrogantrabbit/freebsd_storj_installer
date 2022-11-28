@@ -1,5 +1,5 @@
-This is a simple script to download and configure STORJ as a service in FreeBSD. Tested in a 13.1-RELEASE jail on TrueNAS 13.1.
-
+This is a simple script to download and configure STORJ as a service in FreeBSD. Tested in a 13.1-RELEASE jail on 
+TrueNAS 13.1.
 
 To use: clone the repo, edit the top of the install.sh to specify your data:
 
@@ -12,9 +12,9 @@ To use: clone the repo, edit the top of the install.sh to specify your data:
 - `NETWAIT_IP` -- IP address of a host to be used for network connectivity testing.
 - `CONSOLE_ADDRESS` -- optional interface and port where to run console. Omitting inteface address will listen on all interfaces.
 
-Then run the install script. 
+Then run the "install" script. 
 
-The script will peform the following: 
+The script will perform the following: 
 
 - determine the suggested version of storage node as defined by https://version.storj.io, download, and install the executables.
 - initialize the identity, authorize it with the token, and init storage. 
@@ -22,6 +22,8 @@ The script will peform the following:
 
 Use `service` utility to control them. For example, `service storj start` or `service storj status`
 
-Note on storagenode-updater: As of today, storagenode updater does not know how to restart the service on freebsd. While it successfuly updates the executable, the old one continues running.
-Until the situation changes we include a simple shell script instead of storagenode-updater that ignores input parameters and simply does the job.
+Note on storagenode-updater: As of today, storagenode updater does not know how to restart the service on freebsd: 
+See https://github.com/storj/storj/issues/5333. While it successfully updates the executable, the old one continues 
+running. Until the situation changes we include a simple shell script instead of storagenode-updater that ignores input 
+parameters and simply does the job.
 
