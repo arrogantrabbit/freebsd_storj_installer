@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Identity token <email:hash>
-IDENTITY_AUTH_TOKEN="CHANGE_ME"
+IDENTITY_AUTH_TOKEN="CHANGE_ME1"
 
 # External address and port, setup port forwarding as needed
 CONTACT_EXTERNAL_ADDRESS="example.com:28968"
@@ -126,7 +126,7 @@ else
   echo "Identity found in ${IDENTITY_DIR}"
 fi
 
-if [ 0 -eq $(find "${IDENTITY_DIR}" -name "identity.*.cert" | wc -l) ]; then
+if [ 0 -eq "$(find "${IDENTITY_DIR}" -name "identity.*.cert" | wc -l)" ]; then
   echo "Authorizing the storage node with identity ${IDENTITY_AUTH_TOKEN}"
   identity authorize storagenode "${IDENTITY_AUTH_TOKEN}" \
     --config-dir "${CONFIG_DIR}" \
@@ -136,12 +136,12 @@ else
   echo "Identity is already authorized for at least one token."
 fi
 
-if [ 2 -ne $(grep -c BEGIN ${IDENTITY_DIR}/ca.cert) ]; then
+if [ 2 -ne "$(grep -c BEGIN ${IDENTITY_DIR}/ca.cert)" ]; then
   echo "Bad Identity: ca.cert"
   exit 1
 fi
 
-if [ 3 -ne $(grep -c BEGIN ${IDENTITY_DIR}/identity.cert) ]; then
+if [ 3 -ne "$(grep -c BEGIN ${IDENTITY_DIR}/identity.cert)" ]; then
   echo "Bad Identity: identity.cert"
   exit 1
 fi
