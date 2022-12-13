@@ -4,7 +4,7 @@
 IDENTITY_AUTH_TOKEN="CHANGE_ME1"
 
 # External address and port, setup port forwarding as needed
-CONTACT_EXTERNAL_ADDRESS="example.com:28968"
+CONTACT_EXTERNAL_ADDRESS="example.com:28967"
 
 # Operator email address
 OPERATOR_EMAIL="user@example.com"
