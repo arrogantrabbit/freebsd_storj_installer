@@ -47,7 +47,7 @@ pkg install -y jq curl unzip || exit 1
 
 # Adding the storagenode user "storagenode" with group "storagenode" unless already exists
 id -g storagenode >/dev/null 2>/dev/null || (pw groupadd storagenode || exit 1)
-id -g storagenode >/dev/null 2>/dev/null || (pw useradd -n storagenode -G storagenode -s /nonexistent -h - || exit 1)
+id -u storagenode >/dev/null 2>/dev/null || (pw useradd -n storagenode -G storagenode -s /nonexistent -h - || exit 1)
 
 # Taking ownership of the storage directory
 chown -R storagenode:storagenode "${STORAGE_PATH}" || exit 1
