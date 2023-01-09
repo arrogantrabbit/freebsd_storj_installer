@@ -34,33 +34,22 @@ if [ "$IDENTITY_AUTH_TOKEN" = "CHANGE_ME" ]; then
   exit 1
 fi
 
-if [ ! -w "${STORAGE_PATH}" ]; then
-  echo "Storage path is not writable"
-  exit 1
-fi
+[ -w "${STORAGE_PATH}" ] || (echo "Specified storage path is not writable: ${STORAGE_PATH}";  exit 1)
 
 IDENTITY_ROOT="${STORAGE_PATH}/identity"
 CONFIG_DIR="${STORAGE_PATH}/config"
 mkdir -p "${CONFIG_DIR}" "${IDENTITY_ROOT}" || exit 1
 
-if [ "$(id -u)" -ne 0 ]; then
-  echo "Restart the script as superuser"
-	exit 1
-fi
+[ "$(id -u)" -eq 0 ] || (echo "Restart the script as superuser"; exit 1)
 
 # Prerequisites
 pkg install -y jq curl unzip || exit 1
 
 # Adding the storagenode user "storagenode" with group "storagenode" unless already exists
-if ! id -g storagenode >/dev/null 2>/dev/null; then
-  pw groupadd storagenode
-fi
+id -g storagenode >/dev/null 2>/dev/null || (pw groupadd storagenode || exit 1)
+id -g storagenode >/dev/null 2>/dev/null || (pw useradd -n storagenode -G storagenode -s /nonexistent -h - || exit 1)
 
-if ! id -g storagenode >/dev/null 2>/dev/null; then
-  pw useradd -n storagenode -G storagenode -s /nonexistent -h -
-fi
-
-# taking ownership of the storage directory
+# Taking ownership of the storage directory
 chown -R storagenode:storagenode "${STORAGE_PATH}" || exit 1
 
 # NOTE on storagenode_updater: As of today, storagenode updater does not know how to restart the service on freebsd.
@@ -74,25 +63,17 @@ VERSION_CHECK_URL="https://version.storj.io"
 SUGGESTION=$(curl -L "${VERSION_CHECK_URL}" 2>/dev/null | jq -r '.processes.storagenode.suggested')
 VERSION=$(echo "${SUGGESTION}" | jq -r '.version')
 
-if [ -z "${VERSION}" ]; then
-  echo "Failed to determine suggested version"
-  exit 1
-fi
-
+[ -z "${VERSION}" ] && (echo "Failed to determine suggested version";  exit 1)
 echo "Suggested STORJ version: v${VERSION}"
 
 STORAGENODE_URL=$(echo "${SUGGESTION}" | jq -r '.url' | sed "s/[{]arch[}]/amd64/g" | sed "s/[{]os[}]/freebsd/g")
-
-if [ -z "${STORAGENODE_URL}" ]; then
-  echo "Failed to determine suggested storage node download URL"
-  exit 1
-fi
+[ -z "${STORAGENODE_URL}" ] && (echo "Failed to determine suggested storage node download URL"; exit 1)
 
 echo "Storagenode download URL: ${STORAGENODE_URL}"
 #STORAGENODE_UPDATER_URL="https://github.com/storj/storj/releases/download/v${VERSION}/storagenode-updater_freebsd_amd64.zip"
 IDENTITY_URL="https://github.com/storj/storj/releases/download/v${VERSION}/identity_freebsd_amd64.zip"
 
-mkdir -p /tmp/"${VERSION}"
+mkdir -p /tmp/"${VERSION}" || (echo "Cannot make a folder under /tmp"; exit 1)
 
 IDENTITY_ZIP=/tmp/${VERSION}/$(basename "${IDENTITY_URL}")
 STORAGENODE_ZIP=/tmp/${VERSION}/$(basename "${STORAGENODE_URL}")
@@ -100,10 +81,10 @@ STORAGENODE_ZIP=/tmp/${VERSION}/$(basename "${STORAGENODE_URL}")
 
 TARGET_BIN_DIR="/usr/local/bin"
 
-fetch() {
+fetch()
+{
   WHAT="${1}"
   WHERE="${2}"
-
   if [ ! -f "${WHERE}" ] ; then
     echo "Downloading ${WHAT} from ${WHERE}"
     curl --remove-on-error -L "${WHAT}" -o "${WHERE}"
@@ -135,51 +116,33 @@ IDENTITY_DIR="${IDENTITY_ROOT}/storagenode"
 
 if [ ! -f "${IDENTITY_DIR}/identity.cert" ]; then
   echo "Generating new identity"
-  identity create storagenode \
-    --config-dir "${CONFIG_DIR}" \
-    --identity-dir "${IDENTITY_ROOT}" \
-    || exit 1
+  su -m storagenode -c "identity create storagenode --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_ROOT}\"" || exit 1
 else
   echo "Identity found in ${IDENTITY_DIR}"
 fi
 
 if [ 0 -eq "$(find "${IDENTITY_DIR}" -name "identity.*.cert" | wc -l)" ]; then
   echo "Authorizing the storage node with identity ${IDENTITY_AUTH_TOKEN}"
-  identity authorize storagenode "${IDENTITY_AUTH_TOKEN}" \
-    --config-dir "${CONFIG_DIR}" \
-    --identity-dir "${IDENTITY_ROOT}" \
-    || exit 1
+  su -m storagenode -c "identity authorize storagenode \"${IDENTITY_AUTH_TOKEN}\" --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_ROOT}\"" || exit 1
 else
-  echo "Identity is already authorized for at least one token."
+  echo "Identity is already authorized for at least one token, skipping node authorization"
 fi
 
 echo "Verifying identity files"
-
-if [ 2 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/ca.cert")" ]; then
-  echo "Bad Identity: ca.cert"
-  exit 1
-fi
-
-if [ 3 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/identity.cert")" ]; then
-  echo "Bad Identity: identity.cert"
-  exit 1
-fi
+[ 2 -eq "$(grep -c BEGIN "${IDENTITY_DIR}/ca.cert")" ] || (echo "Bad Identity: ca.cert"; exit 1)
+[ 3 -eq "$(grep -c BEGIN "${IDENTITY_DIR}/identity.cert")" ] || (echo "Bad Identity: identity.cert"; exit 1)
 
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
 if [ ! -f "${CONFIG_FILE}" ]; then
   echo "Configuring storagenode"
-  storagenode setup \
-    --storage.path "${STORAGE_PATH}" \
-    --config-dir "${CONFIG_DIR}" \
-    --identity-dir "${IDENTITY_DIR}" \
-    --operator.email "${OPERATOR_EMAIL}" \
-    --console.address "${CONSOLE_ADDRESS}" \
-    --operator.wallet "${OPERATOR_WALLET}" \
-    --operator.wallet-features "${OPERATOR_WALLET_FEATURES}" \
-    --contact.external-address "${CONTACT_EXTERNAL_ADDRESS}" \
-    --storage.allocated-disk-space "${STORAGE_ALLOCATED_DISK_SPACE}" \
-    || exit 1
+  su -m storagenode -c "storagenode setup --storage.path "${STORAGE_PATH}" --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_DIR}\" --operator.email \"${OPERATOR_EMAIL}\" --console.address \"${CONSOLE_ADDRESS}\" --operator.wallet \"${OPERATOR_WALLET}\" --operator.wallet-features \"${OPERATOR_WALLET_FEATURES}\" --contact.external-address \"${CONTACT_EXTERNAL_ADDRESS}\" --storage.allocated-disk-space \"${STORAGE_ALLOCATED_DISK_SPACE}\"" || exit 1
+else
+  echo "Storagenode setup has already been performed (config file exists), skipping node setup"
 fi
+
+# Setting ownership again
+chown -R storagenode:storagenode "${STORAGE_PATH}" || exit 1
+
 
 echo "Configuring netwait to wait for ${NETWAIT_IP}"
 sysrc netwait_ip="${NETWAIT_IP}"
@@ -189,7 +152,6 @@ sysrc storagenode_identity_dir="${IDENTITY_DIR}"
 sysrc storagenode_config_dir="${CONFIG_DIR}"
 # This is needed to prevent the service from starting if the storage is not mounted.
 sysrc storagenode_storage_path="${STORAGE_PATH}"
-
 
 echo "Configuring storagenode_updater rc service"
 sysrc storagenode_updater_config_dir="${CONFIG_DIR}"
