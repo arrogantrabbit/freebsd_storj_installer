@@ -141,7 +141,7 @@ else
 fi
 
 # Setting ownership again
-chown -R storagenode:storagenode "${STORAGE_PATH}" || exit 1
+#chown -R storagenode:storagenode "${STORAGE_PATH}" || exit 1
 
 
 echo "Configuring netwait to wait for ${NETWAIT_IP}"
