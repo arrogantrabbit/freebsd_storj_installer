@@ -13,8 +13,8 @@ OPERATOR_EMAIL="user@example.com"
 OPERATOR_WALLET="0x0e......02f"
 OPERATOR_WALLET_FEATURES="zksync"
 
-# Location where the store will be initialized.
-STORAGE_PATH="/mnt/storj"
+# Location WHERE the store will be initialized.
+STORAGE_PATH="/mnt/storagenode"
 
 # ip to ping for network connectivity test
 NETWAIT_IP="1.1.1.1"
@@ -43,10 +43,27 @@ IDENTITY_ROOT="${STORAGE_PATH}/identity"
 CONFIG_DIR="${STORAGE_PATH}/config"
 mkdir -p "${CONFIG_DIR}" "${IDENTITY_ROOT}" || exit 1
 
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Restart the script as superuser"
+	exit 1
+fi
+
 # Prerequisites
 pkg install -y jq curl unzip || exit 1
 
-# NOTE on storagenode-updater: As of today, storagenode updater does not know how to restart the service on freebsd.
+# Adding the storagenode user "storagenode" with group "storagenode" unless already exists
+if ! id -g storagenode >/dev/null 2>/dev/null; then
+  pw groupadd storagenode
+fi
+
+if ! id -g storagenode >/dev/null 2>/dev/null; then
+  pw useradd -n storagenode -G storagenode -s /nonexistent -h -
+fi
+
+# taking ownership of the storage directory
+chown -R storagenode:storagenode "${STORAGE_PATH}" || exit 1
+
+# NOTE on storagenode_updater: As of today, storagenode updater does not know how to restart the service on freebsd.
 # While it successfully updates the executable it continues running the old one.
 # Until the situation changes we include a simple shell script instead of storage node updater that ignores input
 # parameters and simply does the job. When this changes, uncomment the STORAGENODE_UPDATER_XXX related code below.
@@ -58,8 +75,8 @@ SUGGESTION=$(curl -L "${VERSION_CHECK_URL}" 2>/dev/null | jq -r '.processes.stor
 VERSION=$(echo "${SUGGESTION}" | jq -r '.version')
 
 if [ -z "${VERSION}" ]; then
-    echo "Failed to determine suggested version"
-    exit 1
+  echo "Failed to determine suggested version"
+  exit 1
 fi
 
 echo "Suggested STORJ version: v${VERSION}"
@@ -67,8 +84,8 @@ echo "Suggested STORJ version: v${VERSION}"
 STORAGENODE_URL=$(echo "${SUGGESTION}" | jq -r '.url' | sed "s/[{]arch[}]/amd64/g" | sed "s/[{]os[}]/freebsd/g")
 
 if [ -z "${STORAGENODE_URL}" ]; then
-    echo "Failed to determine suggested storage node download URL"
-    exit 1
+  echo "Failed to determine suggested storage node download URL"
+  exit 1
 fi
 
 echo "Storagenode download URL: ${STORAGENODE_URL}"
@@ -84,15 +101,15 @@ STORAGENODE_ZIP=/tmp/${VERSION}/$(basename "${STORAGENODE_URL}")
 TARGET_BIN_DIR="/usr/local/bin"
 
 fetch() {
-  what="${1}"
-  where="${2}"
+  WHAT="${1}"
+  WHERE="${2}"
 
-  if [ ! -f "${where}" ] ; then
-    echo "Downloading ${what} from ${where}"
-    curl -L "${what}" -o "${where}"
+  if [ ! -f "${WHERE}" ] ; then
+    echo "Downloading ${WHAT} from ${WHERE}"
+    curl --remove-on-error -L "${WHAT}" -o "${WHERE}"
   fi
-  if [ ! -f "${where}" ] ; then
-    echo "Failed to download ${where} from ${what}"
+  if [ ! -f "${WHERE}" ] ; then
+    echo "Failed to download ${WHERE} from ${WHAT}"
     exit 1
   fi
 }
@@ -103,11 +120,11 @@ fetch "${STORAGENODE_URL}" "${STORAGENODE_ZIP}"
 #fetch "${STORAGENODE_UPDATER_URL}" "${STORAGENODE_UPDATER_ZIP}"
 
 echo "Stopping existing services"
-service storj stop 2>/dev/null >/dev/null
-service storjupd stop 2>/dev/null >/dev/null
+service storagenode stop 2>/dev/null >/dev/null
+service storagenode_updater stop 2>/dev/null >/dev/null
 
 echo "Copying rc scripts and replacement updater"
-cp -rv root/ /
+cp -rv overlay/ /
 
 echo "Extracting downloaded binaries to ${TARGET_BIN_DIR}"
 unzip -d "${TARGET_BIN_DIR}" -o "${IDENTITY_ZIP}"
@@ -136,6 +153,8 @@ else
   echo "Identity is already authorized for at least one token."
 fi
 
+echo "Verifying identity files"
+
 if [ 2 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/ca.cert")" ]; then
   echo "Bad Identity: ca.cert"
   exit 1
@@ -147,8 +166,8 @@ if [ 3 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/identity.cert")" ]; then
 fi
 
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
-
 if [ ! -f "${CONFIG_FILE}" ]; then
+  echo "Configuring storagenode"
   storagenode setup \
     --storage.path "${STORAGE_PATH}" \
     --config-dir "${CONFIG_DIR}" \
@@ -158,26 +177,33 @@ if [ ! -f "${CONFIG_FILE}" ]; then
     --operator.wallet "${OPERATOR_WALLET}" \
     --operator.wallet-features "${OPERATOR_WALLET_FEATURES}" \
     --contact.external-address "${CONTACT_EXTERNAL_ADDRESS}" \
-    --storage.allocated-disk-space "${STORAGE_ALLOCATED_DISK_SPACE}"
+    --storage.allocated-disk-space "${STORAGE_ALLOCATED_DISK_SPACE}" \
+    || exit 1
 fi
 
 echo "Configuring netwait to wait for ${NETWAIT_IP}"
 sysrc netwait_ip="${NETWAIT_IP}"
 
-echo "Configuring storj"
-sysrc storj_identity_dir="${IDENTITY_DIR}"
-sysrc storj_config_dir="${CONFIG_DIR}"
+echo "Configuring storagenode rc service"
+sysrc storagenode_identity_dir="${IDENTITY_DIR}"
+sysrc storagenode_config_dir="${CONFIG_DIR}"
 # This is needed to prevent the service from starting if the storage is not mounted.
-sysrc storj_storage_path="${STORAGE_PATH}"
+sysrc storagenode_storage_path="${STORAGE_PATH}"
+
+
+echo "Configuring storagenode_updater rc service"
+sysrc storagenode_updater_config_dir="${CONFIG_DIR}"
+sysrc storagenode_updater_identity_dir="${IDENTITY_DIR}"
 
 echo "Enabling services"
-service storj enable
-service storjupd enable
+service storagenode enable
+service storagenode_updater enable
 service newsyslog enable
 service netwait enable
 
 echo "Starting services"
-service storj start
-service storjupd start
+service storagenode start
+service storagenode_updater start
 service newsyslog start
 
+echo "Success"

@@ -1,0 +1,35 @@
+#!/bin/sh
+
+# PROVIDE: storagenode_updater
+# REQUIRE: LOGIN FILESYSTEMS netwait
+# KEYWORD: SHUTDOWN
+
+. /etc/rc.subr
+
+name=storagenode_updater
+rcvar=${name}_enable
+
+
+load_rc_config $name
+: "${storagenode_updater_storage_path:="/mnt/storagenode"}"
+: "${storagenode_updater_enable:=yes}"
+: "${storagenode_updater_executable:="/usr/local/bin/storagenode-updater"}"
+: "${storagenode_updater_node_binary_location:="/usr/local/bin/storagenode"}"
+: "${storagenode_updater_node_service_name:="storagenode"}"
+: "${storagenode_updater_config_dir:="${storagenode_updater_storage_path}/config"}"
+: "${storagenode_updater_identity_dir:="${storagenode_updater_storage_path}/identity/storagenode"}"
+
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-f -H \
+  -o \"/var/log/${name}.log\" \
+  -P \"${pidfile}\" \
+  -u root \
+  \"${storagenode_updater_executable}\" run \
+    --config-dir \"${storagenode_updater_config_dir}\" \
+    --identity-dir \"${storagenode_updater_identity_dir}\" \
+    --binary-location \"${storagenode_updater_node_binary_location}\" \
+    --service-name \"${storagenode_updater_node_service_name}\""
+
+run_rc_command "$1"
+

@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# PROVIDE: storagenode
+# REQUIRE: LOGIN FILESYSTEMS netwait
+# KEYWORD: SHUTDOWN
+
+. /etc/rc.subr
+
+name=storagenode
+rcvar=${name}_enable
+
+
+load_rc_config $name
+: "${storagenode_enable:=yes}"
+: "${storagenode_executable:="/usr/local/bin/storagenode"}"
+: "${storagenode_msg:="Nothing started."}"
+: "${storagenode_storage_path:="/mnt/storagenode"}"
+: "${storagenode_config_dir:="${storagenode_storage_path}/config"}"
+: "${storagenode_identity_dir:="${storagenode_storage_path}/identity/storagenode"}"
+
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-r -f -H \
+  -o \"/var/log/${name}.log\" \
+  -P \"${pidfile}\" \
+  -u storagenode \"${storagenode_executable}\" run \
+    --config-dir \"${storagenode_config_dir}\" \
+    --identity-dir \"${storagenode_identity_dir}\" \
+    --log.output stdout \
+    --storage.path \"${storagenode_storage_path}\""
+
+required_dirs="${storagenode_storage_path}/blobs"
+
+run_rc_command "$1"
