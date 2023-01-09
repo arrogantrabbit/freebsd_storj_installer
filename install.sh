@@ -140,10 +140,6 @@ else
   echo "Storagenode setup has already been performed (config file exists), skipping node setup"
 fi
 
-# Setting ownership again
-#chown -R storagenode:storagenode "${STORAGE_PATH}" || exit 1
-
-
 echo "Configuring netwait to wait for ${NETWAIT_IP}"
 sysrc netwait_ip="${NETWAIT_IP}"
 
