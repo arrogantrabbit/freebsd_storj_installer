@@ -135,7 +135,7 @@ echo "Verifying identity files"
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
 if [ ! -f "${CONFIG_FILE}" ]; then
   echo "Configuring storagenode"
-  su -m storagenode -c "storagenode setup --storage.path "${STORAGE_PATH}" --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_DIR}\" --operator.email \"${OPERATOR_EMAIL}\" --console.address \"${CONSOLE_ADDRESS}\" --operator.wallet \"${OPERATOR_WALLET}\" --operator.wallet-features \"${OPERATOR_WALLET_FEATURES}\" --contact.external-address \"${CONTACT_EXTERNAL_ADDRESS}\" --storage.allocated-disk-space \"${STORAGE_ALLOCATED_DISK_SPACE}\"" || exit 1
+  su -m storagenode -c "storagenode setup --storage.path \"${STORAGE_PATH}\" --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_DIR}\" --operator.email \"${OPERATOR_EMAIL}\" --console.address \"${CONSOLE_ADDRESS}\" --operator.wallet \"${OPERATOR_WALLET}\" --operator.wallet-features \"${OPERATOR_WALLET_FEATURES}\" --contact.external-address \"${CONTACT_EXTERNAL_ADDRESS}\" --storage.allocated-disk-space \"${STORAGE_ALLOCATED_DISK_SPACE}\"" || exit 1
 else
   echo "Storagenode setup has already been performed (config file exists), skipping node setup"
 fi
