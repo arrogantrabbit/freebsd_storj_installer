@@ -1,0 +1,43 @@
+#!/bin/sh
+
+STORAGENODE_UPDATE_INTERVAL_SECONDS=900
+STORAGENODE_VERSION_CHECK_URL="https://version.storj.io"
+TARGET_BIN_DIR="/usr/local/bin"
+
+: "${storagenode_node_binary_location:="/usr/local/bin/storagenode"}"
+: "${storagenode_updater_node_service_name:="storagenode"}"
+
+echo "Starting replacement storagenode updater"
+
+while true; do
+    # { "version": "1.59.1", "url": "https://github.com/storj/storj/releases/download/v1.59.1/storagenode_{os}_{arch}.zip" }
+    suggested=$(curl -L "${STORAGENODE_VERSION_CHECK_URL}" 2>/dev/null | jq -r '.processes.storagenode.suggested')
+    current_version=$(${storagenode_node_binary_location} version 2>/dev/null | sed -n 's/Version: v\(.*\)/\1/p')
+    suggested_version=$(echo "$suggested" | jq -r '.version')
+    echo "Versions: current=$current_version, suggested=$suggested_version"
+
+    if [ -z "${suggested_version}" ]; then 
+        echo "Failed to determine suggested version"
+    else
+        if [ "${current_version}" != "${suggested_version}" ]; then
+            download_url=$(echo "$suggested" | jq -r '.url' | sed "s/[{]arch[}]/amd64/g" | sed "s/[{]os[}]/freebsd/g")
+            echo "Download URL: $download_url"
+    
+            temp_sub_folder="/tmp/${suggested_version}"
+    	    mkdir -p "${temp_sub_folder}"
+            zipfile="${temp_sub_folder}/$(basename "${download_url}")"
+            curl --remove-on-error -L "${download_url}" -o "${zipfile}"
+            outcome=$?
+            if [ $outcome -eq 0 ]; then
+                echo "Successfully downloaded $zipfile"
+                echo "Extracting archive to ${TARGET_BIN_DIR}"
+                unzip -d "${TARGET_BIN_DIR}" -o "${zipfile}" && rm "${zipfile}"
+                echo "Restarting service ${storagenode_updater_node_service_name}"
+                service "${storagenode_updater_node_service_name}" restart
+                echo "Done"
+            fi
+        fi
+    fi
+
+    sleep "$STORAGENODE_UPDATE_INTERVAL_SECONDS"
+done

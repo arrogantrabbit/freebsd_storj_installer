@@ -17,10 +17,11 @@ Then run the "install" script.
 The script will perform the following: 
 
 - determine the suggested version of storage node as defined by https://version.storj.io, download, and install the executables.
+- create the `storagenode` local user
 - initialize the identity, authorize it with the token, and init storage. 
-- create and start two rc services: `storj` and `storjupd`. The former one is storagenode, the latter one is updater.
+- create and start two rc services: `storagenode` and `storagenode_updater`. The former one is storagenode, runs  as user "storagenode", the latter one is updater, runs as root.
 
-Use `service` utility to control them. For example, `service storj start` or `service storj status`
+Use `service` utility to control them. For example, `service storagenode start` or `service storagenode status`
 
 Note on storagenode-updater: As of today, storagenode updater does not know how to restart the service on freebsd: 
 See https://github.com/storj/storj/issues/5333. While it successfully updates the executable, the old one continues 
