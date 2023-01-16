@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Identity token <email:hash>
-IDENTITY_AUTH_TOKEN="CHANGE_ME1"
+IDENTITY_AUTH_TOKEN="CHANGE_ME"
 
 # External address and port, setup port forwarding as needed
 CONTACT_EXTERNAL_ADDRESS="example.com:28967"
