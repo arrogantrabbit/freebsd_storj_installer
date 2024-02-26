@@ -15,6 +15,7 @@ OPERATOR_WALLET_FEATURES=""
 
 # Location WHERE the store will be initialized.
 STORAGE_PATH="/mnt/storagenode"
+DATABASE_DIR="/mnt/storagenode"
 
 # ip to ping for network connectivity test
 NETWAIT_IP="1.1.1.1"
@@ -173,7 +174,7 @@ fi
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
 if [ ! -f "${CONFIG_FILE}" ]; then
   echo "Configuring storagenode"
-  if ! su -m storagenode -c "storagenode setup --storage.path \"${STORAGE_PATH}\" --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_DIR}\" --operator.email \"${OPERATOR_EMAIL}\" --console.address \"${CONSOLE_ADDRESS}\" --operator.wallet \"${OPERATOR_WALLET}\" --operator.wallet-features \"${OPERATOR_WALLET_FEATURES}\" --contact.external-address \"${CONTACT_EXTERNAL_ADDRESS}\" --storage.allocated-disk-space \"${STORAGE_ALLOCATED_DISK_SPACE}\""; then
+  if ! su -m storagenode -c "storagenode setup --storage.path \"${STORAGE_PATH}\" --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_DIR}\" --operator.email \"${OPERATOR_EMAIL}\" --console.address \"${CONSOLE_ADDRESS}\" --operator.wallet \"${OPERATOR_WALLET}\" --operator.wallet-features \"${OPERATOR_WALLET_FEATURES}\" --contact.external-address \"${CONTACT_EXTERNAL_ADDRESS}\" --storage.allocated-disk-space \"${STORAGE_ALLOCATED_DISK_SPACE}\" --storage2.database-dir \"${DATABASE_DIR}\""; then
     echo "Failed to setup storagenode"
     exit 1
   fi
