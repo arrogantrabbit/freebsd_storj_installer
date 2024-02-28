@@ -68,6 +68,13 @@ if ! chown -R storagenode:storagenode "${STORAGE_PATH}"; then
   exit 1
 fi
 
+# Taking ownership of the databases directory
+if ! chown -R storagenode:storagenode "${DATABASE_DIR}"; then
+  echo "Cannot propagate ownership on ${DATABASE_DIR}"
+  exit 1
+fi
+
+
 # NOTE on storagenode_updater: As of today, storagenode updater does not know how to restart the service on freebsd.
 # While it successfully updates the executable it continues running the old one.
 # Until the situation changes we include a simple shell script instead of storage node updater that ignores input
