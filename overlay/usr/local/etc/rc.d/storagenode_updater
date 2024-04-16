@@ -20,16 +20,28 @@ load_rc_config $name
 : "${storagenode_updater_identity_dir:="${storagenode_updater_storage_path}/identity/storagenode"}"
 
 pidfile="/var/run/${name}.pid"
+pidfile_child="/var/run/${name}_child.pid"
 command="/usr/sbin/daemon"
 command_args="-f -H \
   -o \"/var/log/${name}.log\" \
   -P \"${pidfile}\" \
+  -p \"${pidfile_child}\" \
   -u root \
   \"${storagenode_updater_executable}\" run \
     --config-dir \"${storagenode_updater_config_dir}\" \
     --identity-dir \"${storagenode_updater_identity_dir}\" \
     --binary-location \"${storagenode_updater_node_binary_location}\" \
     --service-name \"${storagenode_updater_node_service_name}\""
+
+stop_cmd="${name}_stop"
+
+storagenode_updater_stop()
+{
+#   This is needed to teardown our replacement updater, which runs in a shell interpreter,
+#   that is known to ignore SIGTERM
+    [ -e $pidfile_child  ] && kill -s SIGINT `cat $pidfile_child` && rm $pidfile_child
+    [ -e $pidfile        ] && kill -s SIGINT `cat $pidfile`       && rm $pidfile
+}
 
 run_rc_command "$1"
 
