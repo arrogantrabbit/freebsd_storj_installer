@@ -52,23 +52,23 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-# Prerequisites
+echo "Installing dependencies"
 if ! pkg install -y jq curl unzip; then
-  echo "Failed to install prerequisites"
+  echo "Failed to install dependencies"
   exit 1
 fi
 
-# Adding the storagenode user "storagenode" with group "storagenode" unless already exists
+echo "Adding the storagenode user 'storagenode' with group 'storagenode' unless already exists"
 id -g storagenode >/dev/null 2>/dev/null || pw groupadd storagenode
 id -u storagenode >/dev/null 2>/dev/null || pw useradd -n storagenode -G storagenode -s /nonexistent -h -
 
-# Taking ownership of the storage directory
+echo "Taking ownership of the storage directory"
 if ! chown -R storagenode:storagenode "${STORAGE_PATH}"; then
   echo "Cannot propagate ownership on ${STORAGE_PATH}"
   exit 1
 fi
 
-# Taking ownership of the databases directory
+echo "Taking ownership of the databases directory"
 if ! chown -R storagenode:storagenode "${DATABASE_DIR}"; then
   echo "Cannot propagate ownership on ${DATABASE_DIR}"
   exit 1
