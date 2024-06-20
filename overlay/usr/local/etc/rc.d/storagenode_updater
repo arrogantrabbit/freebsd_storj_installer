@@ -22,8 +22,13 @@ load_rc_config $name
 pidfile="/var/run/${name}.pid"
 pidfile_child="/var/run/${name}_child.pid"
 command="/usr/sbin/daemon"
+
+# Create log file with 644 permissions and storagenode as owner. Daemon utility by default uses 600
+logfile="/var/log/${name}.log"
+touch "${logfile}" && chown storagenode:storagenode "${logfile}" && chmod 644 "${logfile}"
+
 command_args="-f -H \
-  -o \"/var/log/${name}.log\" \
+  -o \"${logfile}\" \
   -P \"${pidfile}\" \
   -p \"${pidfile_child}\" \
   -u root \
