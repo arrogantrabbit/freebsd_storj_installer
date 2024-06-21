@@ -137,6 +137,11 @@ echo "Stopping existing services"
 service storagenode stop 2>/dev/null >/dev/null
 service storagenode_updater stop 2>/dev/null >/dev/null
 
+if [ -f "/etc/newsyslog.conf.d/storj.conf" ]; then
+  echo "Fond storj log rotator config in the old location. Disabling it."
+  mv "/etc/newsyslog.conf.d/storj.conf" "/etc/newsyslog.conf.d/storj.conf.disabled"
+fi
+
 echo "Copying rc scripts and replacement updater"
 cp -rv overlay/ /
 
