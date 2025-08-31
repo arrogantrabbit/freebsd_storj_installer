@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# Identity token <email:hash>
-IDENTITY_AUTH_TOKEN="CHANGE_ME"
-
 # External address and port, setup port forwarding as needed
 CONTACT_EXTERNAL_ADDRESS="example.com:28967"
 
@@ -29,9 +26,9 @@ STORAGE_ALLOCATED_DISK_SPACE="1.00 TB"
 ## Should not need to change anything beyond this line
 ## ---------------------------------------------------
 
-if [ "$IDENTITY_AUTH_TOKEN" = "CHANGE_ME" ]; then
+if [ "$OPERATOR_EMAIL" = "user@example.com" ]; then
   echo "Edit the script and specify required parameters:"
-  echo "IDENTITY_AUTH_TOKEN, CONTACT_EXTERNAL_ADDRESS, OPERATOR_EMAIL, OPERATOR_WALLET, STORAGE_PATH"
+  echo "CONTACT_EXTERNAL_ADDRESS, OPERATOR_EMAIL, OPERATOR_WALLET, STORAGE_PATH"
   exit 1
 fi
 
@@ -162,23 +159,13 @@ else
   echo "Identity found in ${IDENTITY_DIR}"
 fi
 
-if [ 0 -eq "$(find "${IDENTITY_DIR}" -name "identity.*.cert" | wc -l)" ]; then
-  echo "Authorizing the storage node with identity ${IDENTITY_AUTH_TOKEN}"
-  if ! su -m storagenode -c "identity authorize storagenode \"${IDENTITY_AUTH_TOKEN}\" --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_ROOT}\""; then
-    echo "Failed to authorize identity"
-    exit 1
-  fi
-else
-  echo "Identity is already authorized for at least one token, skipping node authorization"
-fi
-
 echo "Verifying identity files"
-if [ 2 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/ca.cert")" ]; then
+if [ 1 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/ca.cert")" ]; then
   echo "Bad Identity: ca.cert"
   exit 1
 fi
 
-if [ 3 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/identity.cert")" ]; then
+if [ 2 -ne "$(grep -c BEGIN "${IDENTITY_DIR}/identity.cert")" ]; then
   echo "Bad Identity: identity.cert"
   exit 1
 fi
