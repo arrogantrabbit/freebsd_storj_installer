@@ -7,7 +7,7 @@ TARGET_BIN_DIR="/usr/local/bin"
 : "${storagenode_node_binary_location:="/usr/local/bin/storagenode"}"
 : "${storagenode_updater_node_service_name:="storagenode"}"
 
-echo "Starting replacement storagenode updater"
+echo "Starting replacement storagenode updater (PID: $$)"
 
 while true; do
     # { "version": "1.59.1", "url": "https://github.com/storj/storj/releases/download/v1.59.1/storagenode_{os}_{arch}.zip" }
