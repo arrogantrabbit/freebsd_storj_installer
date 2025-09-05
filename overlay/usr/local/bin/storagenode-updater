@@ -16,63 +16,126 @@ verify_checksum() {
   local expected_checksum=$2
 
   if [ -n "${expected_checksum}" ]; then
-    echo "Verifying checksum for ${file}"
+    echo "$(date +'%Y-%m-%d %H:%M:%S') Verifying checksum for ${file}"
     file_checksum=$(sha256 -q "${file}")
     if [ "${file_checksum}" != "${expected_checksum}" ]; then
-      echo "Checksum verification failed for ${file}"
+      echo "$(date +'%Y-%m-%d %H:%M:%S') Checksum verification failed for ${file}"
       echo "Expected: ${expected_checksum}"
       echo "Actual: ${file_checksum}"
       return 1
     fi
-    echo "Checksum verification successful"
+    echo "$(date +'%Y-%m-%d %H:%M:%S') Checksum verification successful"
     return 0
   fi
+  return 0
+}
+
+# Function to restart service with verification
+restart_service() {
+  local service_name=$1
+
+  echo "$(date +'%Y-%m-%d %H:%M:%S') Restarting service $service_name"
+  if ! service "$service_name" restart; then
+    echo "$(date +'%Y-%m-%d %H:%M:%S') Service restart failed"
+    return 1
+  fi
+
+  # Verify service is running
+  if ! service "$service_name" status | grep -q "is running"; then
+    echo "$(date +'%Y-%m-%d %H:%M:%S') Service status check failed"
+    return 1
+  fi
+
+  echo "$(date +'%Y-%m-%d %H:%M:%S') Service restart successful"
   return 0
 }
 
 while true; do
     # { "version": "1.59.1", "url": "https://github.com/storj/storj/releases/download/v1.59.1/storagenode_{os}_{arch}.zip" }
     suggested=$(curl -L "${STORAGENODE_VERSION_CHECK_URL}" 2>/dev/null | jq -r '.processes.storagenode.suggested')
+    if [ $? -ne 0 ] || [ -z "$suggested" ]; then
+        echo "$(date +'%Y-%m-%d %H:%M:%S') Failed to determine suggested version"
+        goto_sleep
+        continue
+    fi
+
     current_version=$(${storagenode_node_binary_location} version 2>/dev/null | sed -n 's/Version: v\(.*\)/\1/p')
     suggested_version=$(echo "$suggested" | jq -r '.version')
-    echo "Versions: current=$current_version, suggested=$suggested_version"
+    echo "$(date +'%Y-%m-%d %H:%M:%S') Versions: current=$current_version, suggested=$suggested_version"
 
-    if [ -z "${suggested_version}" ]; then
-        echo "Failed to determine suggested version"
+    if [ -z "${suggested_version}" ] || [ "${current_version}" = "${suggested_version}" ]; then
+        goto_sleep
     else
-        if [ "${current_version}" != "${suggested_version}" ]; then
-            download_url=$(echo "$suggested" | jq -r '.url' | sed "s/[{]arch[}]/amd64/g" | sed "s/[{]os[}]/freebsd/g")
-            echo "Download URL: $download_url"
+        download_url=$(echo "$suggested" | jq -r '.url' | sed "s/[{]arch[}]/amd64/g" | sed "s/[{]os[}]/freebsd/g")
+        echo "$(date +'%Y-%m-%d %H:%M:%S') Download URL: $download_url"
 
-            # Get checksum from GitHub API
-            gh_data=$(curl -L "${GH_API_URL}" 2>/dev/null)
-            storagenode_checksum=$(echo "${gh_data}" | jq -r --arg url "$(basename ${download_url})" '.assets[] | select(.name == $url) | .digest')
+        # Get checksum from GitHub API
+        gh_data=$(curl -L "${GH_API_URL}" 2>/dev/null)
+        if [ $? -ne 0 ] || [ -z "$gh_data" ]; then
+            echo "$(date +'%Y-%m-%d %H:%M:%S') Failed to get checksum information"
+            goto_sleep
+            continue
+        fi
 
-            if [ -z "${storagenode_checksum}" ]; then
-              echo "Failed to determine checksum for downloaded file"
-            else
-                temp_sub_folder="/tmp/${suggested_version}"
-                mkdir -p "${temp_sub_folder}"
-                zipfile="${temp_sub_folder}/$(basename "${download_url}")"
-                curl --remove-on-error -L "${download_url}" -o "${zipfile}"
-                outcome=$?
-                if [ $outcome -eq 0 ]; then
-                    echo "Successfully downloaded $zipfile"
-                    # Verify checksum before extracting
-                    if verify_checksum "${zipfile}" "${storagenode_checksum}"; then
-                        echo "Extracting archive to ${TARGET_BIN_DIR}"
-                        unzip -d "${TARGET_BIN_DIR}" -o "${zipfile}" && rm "${zipfile}"
-                        echo "Restarting service ${storagenode_updater_node_service_name}"
-                        service "${storagenode_updater_node_service_name}" restart
-                        echo "Done"
-                    else
-                        echo "Checksum verification failed, removing corrupted file"
-                        rm -f "${zipfile}"
-                    fi
-                fi
+        storagenode_checksum=$(echo "${gh_data}" | jq -r --arg url "$(basename ${download_url})" '.assets[] | select(.name == $url) | .digest')
+
+        if [ -z "${storagenode_checksum}" ]; then
+            echo "$(date +'%Y-%m-%d %H:%M:%S') Failed to determine checksum for downloaded file"
+            goto_sleep
+        else
+            temp_sub_folder="/tmp/${suggested_version}"
+            if ! mkdir -p "${temp_sub_folder}"; then
+                echo "$(date +'%Y-%m-%d %H:%M:%S') Failed to create temporary directory"
+                goto_sleep
+                continue
             fi
+
+            zipfile="${temp_sub_folder}/$(basename "${download_url}")"
+
+            # Download with curl's built-in retry
+            echo "$(date +'%Y-%m-%d %H:%M:%S') Downloading $download_url"
+            if ! curl --retry 3 --remove-on-error -L "$download_url" -o "$zipfile"; then
+                echo "$(date +'%Y-%m-%d %H:%M:%S') Download failed after retries"
+                rm -f "${zipfile}"
+                goto_sleep
+                continue
+            fi
+
+            # Verify checksum before extracting
+            if ! verify_checksum "${zipfile}" "${storagenode_checksum}"; then
+                echo "$(date +'%Y-%m-%d %H:%M:%S') Checksum verification failed, removing corrupted file"
+                rm -f "${zipfile}"
+                goto_sleep
+                continue
+            fi
+
+            echo "$(date +'%Y-%m-%d %H:%M:%S') Extracting archive to ${TARGET_BIN_DIR}"
+            if ! unzip -d "${TARGET_BIN_DIR}" -o "${zipfile}"; then
+                echo "$(date +'%Y-%m-%d %H:%M:%S') Extraction failed"
+                rm -f "${zipfile}"
+                goto_sleep
+                continue
+            fi
+
+            # Clean up temporary file
+            rm -f "${zipfile}"
+
+            # Restart service with verification
+            if ! restart_service "${storagenode_updater_node_service_name}"; then
+                echo "$(date +'%Y-%m-%d %H:%M:%S') Service restart failed, update incomplete"
+                goto_sleep
+                continue
+            fi
+
+            echo "$(date +'%Y-%m-%d %H:%M:%S') Update completed successfully"
         fi
     fi
 
-    sleep "$STORAGENODE_UPDATE_INTERVAL_SECONDS"
+    goto_sleep
 done
+
+# Helper function to handle sleep with proper logging
+goto_sleep() {
+    echo "$(date +'%Y-%m-%d %H:%M:%S') No update needed, sleeping for $STORAGENODE_UPDATE_INTERVAL_SECONDS seconds"
+    sleep "$STORAGENODE_UPDATE_INTERVAL_SECONDS"
+}
