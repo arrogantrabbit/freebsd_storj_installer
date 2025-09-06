@@ -38,15 +38,5 @@ command_args="-f -H \
     --binary-location \"${storagenode_updater_node_binary_location}\" \
     --service-name \"${storagenode_updater_node_service_name}\""
 
-stop_cmd="${name}_stop"
-
-storagenode_updater_stop()
-{
-#   This is needed to teardown our replacement updater, which runs in a shell interpreter,
-#   that is known to ignore SIGTERM
-    [ -e $pidfile_child  ] && kill -s SIGKILL `cat $pidfile_child` && rm $pidfile_child
-    [ -e $pidfile        ] && kill -s SIGKILL `cat $pidfile`       && rm $pidfile
-}
-
 run_rc_command "$1"
 
