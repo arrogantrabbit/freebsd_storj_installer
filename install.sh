@@ -201,7 +201,7 @@ IDENTITY_DIR="${IDENTITY_ROOT}/storagenode"
 
 if [ ! -f "${IDENTITY_DIR}/identity.cert" ]; then
   echo "Generating new identity for storagenode"
-  if ! su -m storagenode -c "identity create storagenode --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_ROOT}\" --concurrency $(sysctl -n hw.ncpu) --difficulty 20"; then
+  if ! su -m storagenode -c "identity create storagenode --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_ROOT}\" --concurrency $(sysctl -n hw.ncpu)"; then
     echo "Error: Failed to create identity"
     exit 1
   fi
