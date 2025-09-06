@@ -25,8 +25,8 @@ Before running the script, edit the top of `install.sh` to specify your paramete
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/your-repo/freebsd-storj-installer.git
-   cd freebsd-storj-installer
+   git clone https://github.com/arrogantrabbit/freebsd_storj_installer.git
+   cd freebsd_storj_installer
    ```
 
 2. Edit `install.sh` to set your configuration parameters
