@@ -1,6 +1,11 @@
 # FreeBSD STORJ Node Installer
 
-This script automates the installation and configuration of a STORJ storage node on FreeBSD. It has been tested in a 13.1-RELEASE jail on TrueNAS 13.1.
+This script automates the installation and configuration of a STORJ storage node on FreeBSD. It has been tested in a 13.1-RELEASE jail on TrueNAS 13.1. 
+
+# Credits 
+
+- Orignial implementaiton by Sir Arrogant Rabbit
+- Checksum validation and quality-of-life enhacements: RooCode with locally running mistralai/devstral-small-2507 under unrelenting guidance of Sir Arrogant Rabbit
 
 ## Configuration
 
@@ -11,6 +16,7 @@ Before running the script, edit the top of `install.sh` to specify your paramete
 - `OPERATOR_WALLET` - Your STORJ wallet address (e.g., `0x...`)
 - `OPERATOR_WALLET_FEATURES` - Wallet features (see STORJ documentation)
 - `STORAGE_PATH` - Path where storage will be mounted (must be writable)
+- `DATABASE_DIR` - Path where databases will be mounted. Can be same as above.
 - `NETWAIT_IP` - IP address for network connectivity testing (default: `1.1.1.1`)
 - `CONSOLE_ADDRESS` - Optional interface and port for console (default: `:14002`)
 - `STORAGE_ALLOCATED_DISK_SPACE` - Amount of disk space to allocate (default: `1.00 TB`)
@@ -60,14 +66,6 @@ Similarly, for the updater:
 
 - The script includes checksum verification for downloaded binaries to prevent tampering
 - Services run with appropriate permissions (storagenode as user `storagenode`, updater as root)
-
-## Known Issues
-
-- As of today, storagenode updater does not know how to restart the service on freebsd: 
-See https://github.com/storj/storj/issues/5333. While it successfully updates the executable, the old one continues 
-running. Until the situation changes we include a simple shell script instead of storagenode-updater that ignores input 
-parameters and simply does the job
-- The custom updater script uses SIGKILL as a fallback for process termination because bash does not forward SIGTERM to backgrounded process
 
 ## License
 

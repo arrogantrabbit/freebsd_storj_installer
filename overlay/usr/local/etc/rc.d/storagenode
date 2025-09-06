@@ -41,7 +41,7 @@ required_dirs="${storagenode_storage_path}/blobs ${storagenode_config_dir} ${sto
 
 stop_cmd="${name}_stop"
 
-${name}_stop()
+storagenode_stop()
 {
   echo "Stopping ${name} service..."
 

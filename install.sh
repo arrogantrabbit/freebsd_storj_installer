@@ -7,7 +7,7 @@ CONTACT_EXTERNAL_ADDRESS="example.com:28967"
 OPERATOR_EMAIL="user@example.com"
 
 # Wallet
-OPERATOR_WALLET="0x0e......02f"
+OPERATOR_WALLET="0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 OPERATOR_WALLET_FEATURES=""
 
 # Location WHERE the store will be initialized.
@@ -99,13 +99,6 @@ if ! chown -R storagenode:storagenode "${DATABASE_DIR}"; then
   exit 1
 fi
 
-
-# NOTE on storagenode_updater: As of today, storagenode updater does not know how to restart the service on freebsd.
-# While it successfully updates the executable it continues running the old one.
-# Until the situation changes we include a simple shell script instead of storage node updater that ignores input
-# parameters and simply does the job. When this changes, uncomment the STORAGENODE_UPDATER_XXX related code below.
-# See https://github.com/storj/storj/issues/5333
-
 # Figure out suggested version and URL:
 VERSION_CHECK_URL="https://version.storj.io"
 SUGGESTION=$(curl -L "${VERSION_CHECK_URL}" 2>/dev/null | jq -r '.processes.storagenode.suggested')
@@ -129,11 +122,12 @@ if [ -z "${STORAGENODE_URL}" ]; then
 fi
 
 echo "Storagenode download URL: ${STORAGENODE_URL}"
-#STORAGENODE_UPDATER_URL="https://github.com/storj/storj/releases/download/v${VERSION}/storagenode-updater_freebsd_amd64.zip"
+STORAGENODE_UPDATER_URL="https://github.com/storj/storj/releases/download/v${VERSION}/storagenode-updater_freebsd_amd64.zip"
 IDENTITY_URL="https://github.com/storj/storj/releases/download/v${VERSION}/identity_freebsd_amd64.zip"
 
 # Extract checksums from GitHub API response
 STORAGENODE_CHECKSUM=$(echo "${GH_DATA}" | jq -r --arg url "$(basename ${STORAGENODE_URL})" '.assets[] | select(.name == $url) | .digest')
+STORAGENODE_UPDATER_CHECKSUM=$(echo "${GH_DATA}" | jq -r --arg url "$(basename ${STORAGENODE_UPDATER_URL})" '.assets[] | select(.name == $url) | .digest')
 IDENTITY_CHECKSUM=$(echo "${GH_DATA}" | jq -r --arg url "$(basename ${IDENTITY_URL})" '.assets[] | select(.name == $url) | .digest')
 
 if [ -z "${STORAGENODE_CHECKSUM}" ] || [ -z "${IDENTITY_CHECKSUM}" ]; then
@@ -148,7 +142,7 @@ fi
 
 IDENTITY_ZIP=/tmp/${VERSION}/$(basename "${IDENTITY_URL}")
 STORAGENODE_ZIP=/tmp/${VERSION}/$(basename "${STORAGENODE_URL}")
-#STORAGENODE_UPDATER_ZIP=/tmp/${VERSION}/$(basename ${STORAGENODE_UPDATER_URL})
+STORAGENODE_UPDATER_ZIP=/tmp/${VERSION}/$(basename ${STORAGENODE_UPDATER_URL})
 
 TARGET_BIN_DIR="/usr/local/bin"
 
@@ -171,7 +165,7 @@ fetch()
   if [ -n "${CHECKSUM}" ]; then
     echo "Verifying checksum for ${WHERE}"
     FILE_CHECKSUM=$(sha256 -q "${WHERE}")
-    if [ "${FILE_CHECKSUM}" != "${CHECKSUM}" ]; then
+    if [ "sha256:${FILE_CHECKSUM}" != "${CHECKSUM}" ]; then
       echo "Checksum verification failed for ${WHERE}"
       echo "Expected: ${CHECKSUM}"
       echo "Actual: ${FILE_CHECKSUM}"
@@ -184,7 +178,7 @@ fetch()
 echo "Fetching executables from the internet"
 fetch "${IDENTITY_URL}" "${IDENTITY_ZIP}" "${IDENTITY_CHECKSUM}"
 fetch "${STORAGENODE_URL}" "${STORAGENODE_ZIP}" "${STORAGENODE_CHECKSUM}"
-#fetch "${STORAGENODE_UPDATER_URL}" "${STORAGENODE_UPDATER_ZIP}"
+fetch "${STORAGENODE_UPDATER_URL}" "${STORAGENODE_UPDATER_ZIP}" "${STORAGENODE_UPDATER_CHECKSUM}"
 
 echo "Stopping existing services"
 service storagenode stop 2>/dev/null >/dev/null
@@ -201,13 +195,13 @@ cp -rv overlay/ /
 echo "Extracting downloaded binaries to ${TARGET_BIN_DIR}"
 unzip -d "${TARGET_BIN_DIR}" -o "${IDENTITY_ZIP}"
 unzip -d "${TARGET_BIN_DIR}" -o "${STORAGENODE_ZIP}"
-#unzip -d "${TARGET_BIN_DIR}" -o "${STORAGENODE_UPDATER_ZIP}"
+unzip -d "${TARGET_BIN_DIR}" -o "${STORAGENODE_UPDATER_ZIP}"
 
 IDENTITY_DIR="${IDENTITY_ROOT}/storagenode"
 
 if [ ! -f "${IDENTITY_DIR}/identity.cert" ]; then
   echo "Generating new identity for storagenode"
-  if ! su -m storagenode -c "identity create storagenode --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_ROOT}\" --concurrency $(sysctl -n hw.ncpu)"; then
+  if ! su -m storagenode -c "identity create storagenode --config-dir \"${CONFIG_DIR}\" --identity-dir \"${IDENTITY_ROOT}\" --concurrency $(sysctl -n hw.ncpu) --difficulty 20"; then
     echo "Error: Failed to create identity"
     exit 1
   fi
@@ -290,3 +284,4 @@ echo "Installation completed successfully!"
 echo "Your STORJ node is now running. You can manage it using the 'service' command:"
 echo "  service storagenode status"
 echo "  service storagenode_updater status"
+echo "Logs can be found in /var/log/storagenode.log and /var/log/storagenode_updater.log"
