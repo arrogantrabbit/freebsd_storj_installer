@@ -18,7 +18,7 @@ die() {
 }
 
 # --- sanity checks ---
-[ "$OPERATOR_EMAIL" = "user@example.com" ] && die "Required configuration parameters not set"
+[ "$OPERATOR_EMAIL" = "user@example.com" ] && die "Required configuration parameters not set. Refer to README.md."
 [ "$(id -u)" -eq 0 ] || die "Must be run as root"
 [ -w "${STORAGE_PATH}" ] || die "Storage path ${STORAGE_PATH} not writable"
 
