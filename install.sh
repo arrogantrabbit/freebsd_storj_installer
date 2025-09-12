@@ -2,7 +2,7 @@
 
 # ======== CONFIGURATION ========
 CONTACT_EXTERNAL_ADDRESS="example.com:28967"
-OPERATOR_EMAIL="user1@example.com"
+OPERATOR_EMAIL="user@example.com"
 OPERATOR_WALLET="0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 OPERATOR_WALLET_FEATURES=""
 STORAGE_PATH="/mnt/storagenode"
