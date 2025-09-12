@@ -5,7 +5,7 @@ This script automates the installation and configuration of a STORJ storage node
 # Credits 
 
 - Orignial implementaiton by Sir Arrogant Rabbit
-- Checksum validation and quality-of-life enhacements: RooCode with locally running mistralai/devstral-small-2507 under unrelenting guidance of Sir Arrogant Rabbit
+- Checksum validation and quality-of-life enhacements: RooCode with locally running mistralai/devstral-small-2507 and later ChatGPT-5 under unrelenting guidance of Sir Arrogant Rabbit 
 
 ## Configuration
 
@@ -64,8 +64,8 @@ Similarly, for the updater:
 
 ## Security Notes
 
-- The script includes checksum verification for downloaded binaries to prevent tampering
-- Services run with appropriate permissions (storagenode as user `storagenode`, updater as root)
+- The script verifies checksum of downloaded from github binaries
+- Services by default run with appropriate permissions (storagenode as user `storagenode`, updater as `root`)
 
 ## License
 
