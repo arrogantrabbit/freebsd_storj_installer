@@ -1,42 +1,25 @@
 #!/bin/sh
 
-# External address and port, setup port forwarding as needed
+# ======== CONFIGURATION ========
 CONTACT_EXTERNAL_ADDRESS="example.com:28967"
-
-# Operator email address
 OPERATOR_EMAIL="user@example.com"
-
-# Wallet
 OPERATOR_WALLET="0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 OPERATOR_WALLET_FEATURES=""
-
-# Location WHERE the store will be initialized.
 STORAGE_PATH="/mnt/storagenode"
 DATABASE_DIR="/mnt/storagenode"
-
-# ip to ping for network connectivity test
 NETWAIT_IP="1.1.1.1"
-
-# Where to run console
 CONSOLE_ADDRESS=":14002"
-
-# How much space to allocate
 STORAGE_ALLOCATED_DISK_SPACE="1.00 TB"
-
-## Should not need to change anything beyond this line
-## ---------------------------------------------------
+# =================================
 
 die() {
   echo "Error: $*" >&2
   exit 1
 }
 
-if [ "$OPERATOR_EMAIL" = "user@example.com" ]; then
-  die "Required configuration parameters not set"
-fi
-
+# --- sanity checks ---
+[ "$OPERATOR_EMAIL" = "user@example.com" ] && die "Required configuration parameters not set"
 [ "$(id -u)" -eq 0 ] || die "Must be run as root"
-
 [ -w "${STORAGE_PATH}" ] || die "Storage path ${STORAGE_PATH} not writable"
 
 TEST_FILE="${STORAGE_PATH}/.storage_test"
@@ -46,20 +29,24 @@ echo "Storage path validation successful"
 
 IDENTITY_ROOT="${STORAGE_PATH}/identity"
 CONFIG_DIR="${STORAGE_PATH}/config"
+BLOBS_DIR="${STORAGE_PATH}/blobs"
+
+[ -d "${BLOBS_DIR}" ] || die "Missing blobs directory at ${BLOBS_DIR}"
 mkdir -p "${CONFIG_DIR}" "${IDENTITY_ROOT}" || die "Failed to create required directories"
 
+# --- dependencies ---
 echo "Installing required dependencies (jq, curl, unzip)"
 pkg install -y jq curl unzip || die "Failed to install dependencies"
 
+# --- system user ---
 echo "Ensuring storagenode user and group exist"
 id -g storagenode >/dev/null 2>&1 || pw groupadd storagenode
 id -u storagenode >/dev/null 2>&1 || pw useradd -n storagenode -G storagenode -s /nonexistent -h -
 
 echo "Taking ownership of storage and database directories"
-chown -R storagenode:storagenode "${STORAGE_PATH}" || die "chown failed for ${STORAGE_PATH}"
-chown -R storagenode:storagenode "${DATABASE_DIR}" || die "chown failed for ${DATABASE_DIR}"
+chown -R storagenode:storagenode "${STORAGE_PATH}" "${DATABASE_DIR}" || die "Failed to chown storage dirs"
 
-# Version and download URLs
+# --- version discovery ---
 VERSION_CHECK_URL="https://version.storj.io"
 SUGGESTION=$(curl -L "${VERSION_CHECK_URL}" 2>/dev/null | jq -r '.processes.storagenode.suggested')
 VERSION=$(echo "${SUGGESTION}" | jq -r '.version')
@@ -83,8 +70,7 @@ IDENTITY_ZIP=/tmp/${VERSION}/$(basename "${IDENTITY_URL}")
 STORAGENODE_ZIP=/tmp/${VERSION}/$(basename "${STORAGENODE_URL}")
 STORAGENODE_UPDATER_ZIP=/tmp/${VERSION}/$(basename ${STORAGENODE_UPDATER_URL})
 
-TARGET_BIN_DIR="/usr/local/bin"
-
+# --- fetch helper ---
 fetch() {
   URL="$1"
   DEST="$2"
@@ -106,15 +92,18 @@ fetch "${IDENTITY_URL}" "${IDENTITY_ZIP}" "${IDENTITY_CHECKSUM}"
 fetch "${STORAGENODE_URL}" "${STORAGENODE_ZIP}" "${STORAGENODE_CHECKSUM}"
 fetch "${STORAGENODE_UPDATER_URL}" "${STORAGENODE_UPDATER_ZIP}" "${STORAGENODE_UPDATER_CHECKSUM}"
 
+# --- stop services ---
 echo "Stopping existing services"
-service storagenode stop >/dev/null 2>&1 || true
-service storagenode_updater stop >/dev/null 2>&1 || true
+for svc in storagenode storagenode_updater; do
+  service "$svc" stop >/dev/null 2>&1 || true
+done
 
 [ -f "/etc/newsyslog.conf.d/storj.conf" ] && mv "/etc/newsyslog.conf.d/storj.conf" "/etc/newsyslog.conf.d/storj.conf.disabled"
 
 echo "Copying rc scripts overlay"
 cp -rv overlay/ /
 
+# --- binary install with backup ---
 install_bin() {
   ZIPFILE="$1"
   DESTDIR="$2"
@@ -123,7 +112,17 @@ install_bin() {
   if unzip -q -d "$TMPDIR" "$ZIPFILE"; then
     echo "Installing binaries from $(basename "$ZIPFILE")"
     for f in "$TMPDIR"/*; do
-      install -m 755 "$f" "$DESTDIR/" || die "Failed to install $f"
+      base=$(basename "$f")
+      target="$DESTDIR/$base"
+      if [ -f "$target" ]; then
+        n=1
+        while [ -f "$target.bak.$n" ]; do
+          n=$((n+1))
+        done
+        echo "Backing up existing $base to $target.bak.$n"
+        cp "$target" "$target.bak.$n" || die "Failed to backup $target"
+      fi
+      install -m 755 "$f" "$target" || die "Failed to install $f"
     done
   else
     echo "Warning: Failed to extract $ZIPFILE — keeping old binaries"
@@ -132,10 +131,11 @@ install_bin() {
 }
 
 echo "Installing binaries"
-install_bin "${IDENTITY_ZIP}" "${TARGET_BIN_DIR}"
-install_bin "${STORAGENODE_ZIP}" "${TARGET_BIN_DIR}"
-install_bin "${STORAGENODE_UPDATER_ZIP}" "${TARGET_BIN_DIR}"
+install_bin "${IDENTITY_ZIP}" "/usr/local/bin"
+install_bin "${STORAGENODE_ZIP}" "/usr/local/bin"
+install_bin "${STORAGENODE_UPDATER_ZIP}" "/usr/local/bin"
 
+# --- identity ---
 IDENTITY_DIR="${IDENTITY_ROOT}/storagenode"
 if [ -f "${IDENTITY_DIR}/identity.cert" ]; then
   echo "Existing identity found — preserving"
@@ -149,6 +149,7 @@ fi
 
 [ -f "${IDENTITY_DIR}/identity.cert" ] || die "Missing identity.cert after setup"
 
+# --- config ---
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
 if [ ! -f "${CONFIG_FILE}" ]; then
   echo "Running storagenode setup"
@@ -167,7 +168,7 @@ else
   echo "Config already exists — preserving"
 fi
 
-# Configure services
+# --- rc.conf ---
 sysrc netwait_ip="${NETWAIT_IP}"
 sysrc storagenode_identity_dir="${IDENTITY_DIR}"
 sysrc storagenode_config_dir="${CONFIG_DIR}"
@@ -175,6 +176,7 @@ sysrc storagenode_storage_path="${STORAGE_PATH}"
 sysrc storagenode_updater_config_dir="${CONFIG_DIR}"
 sysrc storagenode_updater_identity_dir="${IDENTITY_DIR}"
 
+# --- services ---
 SERVICES="storagenode storagenode_updater newsyslog netwait"
 
 echo "Enabling services"
