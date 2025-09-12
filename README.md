@@ -62,7 +62,7 @@ Similarly, for the updater:
 - The script verifies checksum of downloaded from github binaries
 - Services by default run with appropriate permissions (storagenode as user `storagenode`, updater as `root`)
 
-# Credits 
+## Credits 
 
 - Orignial implementaiton by Sir Arrogant Rabbit
 - Checksum validation and quality-of-life enhacements: RooCode with locally running mistralai/devstral-small-2507 and later ChatGPT-5 under unrelenting guidance of Sir Arrogant Rabbit
