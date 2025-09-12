@@ -2,11 +2,6 @@
 
 This script automates the installation and configuration of a STORJ storage node on FreeBSD. It has been tested in a 13.1-RELEASE jail on TrueNAS 13.1. 
 
-# Credits 
-
-- Orignial implementaiton by Sir Arrogant Rabbit
-- Checksum validation and quality-of-life enhacements: RooCode with locally running mistralai/devstral-small-2507 and later ChatGPT-5 under unrelenting guidance of Sir Arrogant Rabbit 
-
 ## Configuration
 
 Before running the script, edit the top of `install.sh` to specify your parameters:
@@ -66,6 +61,11 @@ Similarly, for the updater:
 
 - The script verifies checksum of downloaded from github binaries
 - Services by default run with appropriate permissions (storagenode as user `storagenode`, updater as `root`)
+
+# Credits 
+
+- Orignial implementaiton by Sir Arrogant Rabbit
+- Checksum validation and quality-of-life enhacements: RooCode with locally running mistralai/devstral-small-2507 and later ChatGPT-5 under unrelenting guidance of Sir Arrogant Rabbit
 
 ## License
 
