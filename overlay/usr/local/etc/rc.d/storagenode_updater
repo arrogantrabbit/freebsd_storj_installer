@@ -10,7 +10,8 @@ name="storagenode_updater"
 rcvar="${name}_enable"
 
 : ${storagenode_updater_enable:="YES"}
-: ${storagenode_updater_user:="root"}
+: ${storagenode_updater_child_user:="root"}
+: ${storagenode_updater_child_group:="wheel"}
 : ${storagenode_updater_executable:="/usr/local/bin/storagenode-updater"}
 : ${storagenode_updater_node_binary_location:="/usr/local/bin/storagenode"}
 : ${storagenode_updater_node_service_name:="storagenode"}
@@ -26,7 +27,7 @@ start_precmd="${name}_prestart"
 storagenode_updater_prestart()
 {
     # Ensure logfile exists with proper perms
-    install -o "${storagenode_updater_user}" -g "${storagenode_updater_user}" -m 644 /dev/null "${storagenode_updater_logfile}"
+    install -o "${storagenode_updater_child_user}" -g "${storagenode_updater_child_group}" -m 644 /dev/null "${storagenode_updater_logfile}"
 
     # Required dirs must exist
     for d in \
@@ -43,7 +44,7 @@ storagenode_updater_prestart()
 command_args="-f -H \
   -o ${storagenode_updater_logfile} \
   -P ${pidfile} \
-  -u ${storagenode_updater_user} \
+  -u ${storagenode_updater_child_user} \
   ${storagenode_updater_executable} run \
     --config-dir ${storagenode_updater_config_dir} \
     --identity-dir ${storagenode_updater_identity_dir} \
