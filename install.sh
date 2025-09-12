@@ -1,143 +1,221 @@
 #!/bin/sh
-set -eu
 
-# --- Configuration (edit these) ---
+# External address and port, setup port forwarding as needed
 CONTACT_EXTERNAL_ADDRESS="example.com:28967"
+
+# Operator email address
 OPERATOR_EMAIL="user@example.com"
+
+# Wallet
 OPERATOR_WALLET="0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 OPERATOR_WALLET_FEATURES=""
 
+# Location WHERE the store will be initialized.
 STORAGE_PATH="/mnt/storagenode"
 DATABASE_DIR="/mnt/storagenode"
+
+# ip to ping for network connectivity test
 NETWAIT_IP="1.1.1.1"
+
+# Where to run console
 CONSOLE_ADDRESS=":14002"
+
+# How much space to allocate
 STORAGE_ALLOCATED_DISK_SPACE="1.00 TB"
 
-# --- Helpers ---
-die() { echo "ERROR: $*" >&2; exit 1; }
-log() { echo ">>> $*"; }
+## Should not need to change anything beyond this line
+## ---------------------------------------------------
 
-# --- Parameter sanity ---
-[ "$OPERATOR_EMAIL" != "user@example.com" ] || \
-    die "Edit this script and set CONTACT_EXTERNAL_ADDRESS, OPERATOR_EMAIL, OPERATOR_WALLET, STORAGE_PATH"
+if [ "$OPERATOR_EMAIL" = "user@example.com" ]; then
+  echo "Error: Required configuration parameters not set."
+  exit 1
+fi
 
-[ "$(id -u)" -eq 0 ] || \
-    die "This script must be run as root"
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Error: Must be run as root."
+  exit 1
+fi
 
-[ -w "$STORAGE_PATH" ] || die "Storage path $STORAGE_PATH is not writable"
+if [ ! -w "${STORAGE_PATH}" ]; then
+  echo "Error: Storage path ${STORAGE_PATH} not writable"
+  exit 1
+fi
 
+# Validate that we can create files in the storage path
 TEST_FILE="${STORAGE_PATH}/.storage_test"
-touch "$TEST_FILE" || die "Cannot create files in $STORAGE_PATH"
-rm -f "$TEST_FILE"
+if ! touch "${TEST_FILE}" 2>/dev/null; then
+  echo "Error: Cannot create test file in storage path ${STORAGE_PATH}"
+  exit 1
+fi
+rm -f "${TEST_FILE}"
+echo "Storage path validation successful"
 
 IDENTITY_ROOT="${STORAGE_PATH}/identity"
 CONFIG_DIR="${STORAGE_PATH}/config"
-mkdir -p "$CONFIG_DIR" "$IDENTITY_ROOT" || die "Failed to create config/identity dirs"
 
-# --- Dependencies ---
-for dep in jq curl unzip; do
-    command -v $dep >/dev/null 2>&1 || pkg install -y $dep || die "Failed to install $dep"
-done
+mkdir -p "${CONFIG_DIR}" "${IDENTITY_ROOT}" || {
+  echo "Error: Failed to create required directories"
+  exit 1
+}
 
-# --- User/group ---
-pw groupshow storagenode >/dev/null 2>&1 || pw groupadd -n storagenode
-pw usershow storagenode >/dev/null 2>&1 || pw useradd -n storagenode -g storagenode -s /usr/sbin/nologin -h -
+echo "Installing required dependencies (jq, curl, unzip)"
+pkg install -y jq curl unzip || {
+  echo "Error: Failed to install dependencies"
+  exit 1
+}
 
-chown -R storagenode:storagenode "$STORAGE_PATH" "$DATABASE_DIR"
+echo "Ensuring storagenode user and group exist"
+id -g storagenode >/dev/null 2>&1 || pw groupadd storagenode
+id -u storagenode >/dev/null 2>&1 || pw useradd -n storagenode -G storagenode -s /nonexistent -h -
 
-# --- Version discovery ---
+echo "Taking ownership of the storage and database directories"
+chown -R storagenode:storagenode "${STORAGE_PATH}" || exit 1
+chown -R storagenode:storagenode "${DATABASE_DIR}" || exit 1
+
+# Version and download URLs
 VERSION_CHECK_URL="https://version.storj.io"
-SUGGESTION=$(curl -fsSL "$VERSION_CHECK_URL" | jq -r '.processes.storagenode.suggested')
-VERSION=$(echo "$SUGGESTION" | jq -r '.version') || die "Failed to parse version"
-[ -n "$VERSION" ] || die "Empty version string"
+SUGGESTION=$(curl -L "${VERSION_CHECK_URL}" 2>/dev/null | jq -r '.processes.storagenode.suggested')
+VERSION=$(echo "${SUGGESTION}" | jq -r '.version')
 
-STORAGENODE_URL=$(echo "$SUGGESTION" | jq -r '.url' | sed "s/{arch}/amd64/; s/{os}/freebsd/")
+[ -z "${VERSION}" ] && { echo "Failed to determine suggested version"; exit 1; }
+
+echo "Suggested STORJ version: v${VERSION}"
+
+GH_API_URL="https://api.github.com/repos/storj/storj/releases/latest"
+GH_DATA=$(curl -L "${GH_API_URL}" 2>/dev/null)
+
+STORAGENODE_URL=$(echo "${SUGGESTION}" | jq -r '.url' | sed "s/[{]arch[}]/amd64/g" | sed "s/[{]os[}]/freebsd/g")
 STORAGENODE_UPDATER_URL="https://github.com/storj/storj/releases/download/v${VERSION}/storagenode-updater_freebsd_amd64.zip"
 IDENTITY_URL="https://github.com/storj/storj/releases/download/v${VERSION}/identity_freebsd_amd64.zip"
 
-[ -n "$STORAGENODE_URL" ] || die "Failed to derive storagenode URL"
+STORAGENODE_CHECKSUM=$(echo "${GH_DATA}" | jq -r --arg url "$(basename ${STORAGENODE_URL})" '.assets[] | select(.name == $url) | .digest')
+STORAGENODE_UPDATER_CHECKSUM=$(echo "${GH_DATA}" | jq -r --arg url "$(basename ${STORAGENODE_UPDATER_URL})" '.assets[] | select(.name == $url) | .digest')
+IDENTITY_CHECKSUM=$(echo "${GH_DATA}" | jq -r --arg url "$(basename ${IDENTITY_URL})" '.assets[] | select(.name == $url) | .digest')
 
-GH_API_URL="https://api.github.com/repos/storj/storj/releases/latest"
-GH_DATA=$(curl -fsSL "$GH_API_URL")
+mkdir -p /tmp/"${VERSION}" || { echo "Error: Cannot create /tmp/${VERSION}"; exit 1; }
 
-get_digest() {
-    echo "$GH_DATA" | jq -r --arg url "$(basename $1)" '.assets[] | select(.name == $url) | .digest'
+IDENTITY_ZIP=/tmp/${VERSION}/$(basename "${IDENTITY_URL}")
+STORAGENODE_ZIP=/tmp/${VERSION}/$(basename "${STORAGENODE_URL}")
+STORAGENODE_UPDATER_ZIP=/tmp/${VERSION}/$(basename ${STORAGENODE_UPDATER_URL})
+
+TARGET_BIN_DIR="/usr/local/bin"
+
+fetch() {
+  URL="$1"
+  DEST="$2"
+  CHECKSUM="$3"
+
+  if [ ! -f "${DEST}" ]; then
+    echo "Downloading $(basename "$DEST")"
+    curl --remove-on-error -L "$URL" -o "$DEST"
+  fi
+  [ ! -f "${DEST}" ] && { echo "Failed to download $URL"; exit 1; }
+
+  if [ -n "$CHECKSUM" ]; then
+    FILE_CHECKSUM=$(sha256 -q "$DEST")
+    if [ "sha256:$FILE_CHECKSUM" != "$CHECKSUM" ]; then
+      echo "Checksum verification failed for $DEST"
+      exit 1
+    fi
+  fi
 }
-STORAGENODE_CHECKSUM=$(get_digest "$STORAGENODE_URL")
-STORAGENODE_UPDATER_CHECKSUM=$(get_digest "$STORAGENODE_UPDATER_URL")
-IDENTITY_CHECKSUM=$(get_digest "$IDENTITY_URL")
 
-TMPDIR="/tmp/${VERSION}"
-mkdir -p "$TMPDIR"
+echo "Fetching executables"
+fetch "${IDENTITY_URL}" "${IDENTITY_ZIP}" "${IDENTITY_CHECKSUM}"
+fetch "${STORAGENODE_URL}" "${STORAGENODE_ZIP}" "${STORAGENODE_CHECKSUM}"
+fetch "${STORAGENODE_UPDATER_URL}" "${STORAGENODE_UPDATER_ZIP}" "${STORAGENODE_UPDATER_CHECKSUM}"
 
-IDENTITY_ZIP="$TMPDIR/$(basename "$IDENTITY_URL")"
-STORAGENODE_ZIP="$TMPDIR/$(basename "$STORAGENODE_URL")"
-STORAGENODE_UPDATER_ZIP="$TMPDIR/$(basename "$STORAGENODE_UPDATER_URL")"
-
-fetch_file() {
-    url=$1 dest=$2 checksum=$3
-    [ -f "$dest" ] || curl -fL --retry 3 --connect-timeout 15 -o "$dest" "$url" || die "Download failed: $url"
-    [ -n "$checksum" ] || return
-    echo "Verifying $dest"
-    [ "sha256:$(sha256 -q "$dest")" = "$checksum" ] || die "Checksum mismatch for $dest"
-}
-fetch_file "$IDENTITY_URL" "$IDENTITY_ZIP" "$IDENTITY_CHECKSUM"
-fetch_file "$STORAGENODE_URL" "$STORAGENODE_ZIP" "$STORAGENODE_CHECKSUM"
-fetch_file "$STORAGENODE_UPDATER_URL" "$STORAGENODE_UPDATER_ZIP" "$STORAGENODE_UPDATER_CHECKSUM"
-
-# --- Stop old services ---
+echo "Stopping existing services"
 service storagenode stop >/dev/null 2>&1 || true
 service storagenode_updater stop >/dev/null 2>&1 || true
 
-# --- Deploy binaries ---
-TARGET_BIN_DIR="/usr/local/bin"
-unzip -o -d "$TARGET_BIN_DIR" "$IDENTITY_ZIP"
-unzip -o -d "$TARGET_BIN_DIR" "$STORAGENODE_ZIP"
-unzip -o -d "$TARGET_BIN_DIR" "$STORAGENODE_UPDATER_ZIP"
+[ -f "/etc/newsyslog.conf.d/storj.conf" ] && mv "/etc/newsyslog.conf.d/storj.conf" "/etc/newsyslog.conf.d/storj.conf.disabled"
 
-# --- Identity ---
+echo "Copying rc scripts overlay"
+cp -rv overlay/ /
+
+# safer install wrapper for binaries
+install_bin() {
+  ZIPFILE="$1"
+  DESTDIR="$2"
+
+  TMPDIR=$(mktemp -d)
+  if unzip -q -d "$TMPDIR" "$ZIPFILE"; then
+    echo "Installing binaries from $(basename "$ZIPFILE")"
+    for f in "$TMPDIR"/*; do
+      install -m 755 "$f" "$DESTDIR/"
+    done
+  else
+    echo "Error: Failed to extract $ZIPFILE — keeping old binaries"
+  fi
+  rm -rf "$TMPDIR"
+}
+
+echo "Installing binaries"
+install_bin "${IDENTITY_ZIP}" "${TARGET_BIN_DIR}"
+install_bin "${STORAGENODE_ZIP}" "${TARGET_BIN_DIR}"
+install_bin "${STORAGENODE_UPDATER_ZIP}" "${TARGET_BIN_DIR}"
+
 IDENTITY_DIR="${IDENTITY_ROOT}/storagenode"
-if [ ! -f "$IDENTITY_DIR/identity.cert" ]; then
-    su -m storagenode -c "identity create storagenode \
-        --config-dir \"$CONFIG_DIR\" \
-        --identity-dir \"$IDENTITY_ROOT\" \
-        --concurrency $(sysctl -n hw.ncpu)" || die "Identity creation failed"
+
+if [ -f "${IDENTITY_DIR}/identity.cert" ]; then
+  echo "Existing identity found — preserving"
+else
+  echo "Generating new identity"
+  su -m storagenode -c "identity create storagenode \
+    --config-dir \"${CONFIG_DIR}\" \
+    --identity-dir \"${IDENTITY_ROOT}\" \
+    --concurrency $(sysctl -n hw.ncpu)" || {
+      echo "Error: Failed to create identity"
+      exit 1
+  }
 fi
 
-grep -q "BEGIN" "$IDENTITY_DIR/ca.cert" || die "Invalid ca.cert"
-[ "$(grep -c BEGIN "$IDENTITY_DIR/identity.cert")" -eq 2 ] || die "Invalid identity.cert"
-
-# --- Config ---
-CONFIG_FILE="$CONFIG_DIR/config.yaml"
-if [ ! -f "$CONFIG_FILE" ]; then
-    su -m storagenode -c "storagenode setup \
-        --storage.path \"$STORAGE_PATH\" \
-        --config-dir \"$CONFIG_DIR\" \
-        --identity-dir \"$IDENTITY_DIR\" \
-        --operator.email \"$OPERATOR_EMAIL\" \
-        --console.address \"$CONSOLE_ADDRESS\" \
-        --operator.wallet \"$OPERATOR_WALLET\" \
-        --operator.wallet-features \"$OPERATOR_WALLET_FEATURES\" \
-        --contact.external-address \"$CONTACT_EXTERNAL_ADDRESS\" \
-        --storage.allocated-disk-space \"$STORAGE_ALLOCATED_DISK_SPACE\" \
-        --storage2.database-dir \"$DATABASE_DIR\"" || die "Node setup failed"
+echo "Verifying identity file"
+if [ ! -f "${IDENTITY_DIR}/identity.cert" ]; then
+  echo "Error: Missing identity.cert"
+  exit 1
 fi
 
-# --- rc.d configuration ---
-sysrc netwait_ip="$NETWAIT_IP"
-sysrc storagenode_identity_dir="$IDENTITY_DIR"
-sysrc storagenode_config_dir="$CONFIG_DIR"
-sysrc storagenode_storage_path="$STORAGE_PATH"
-sysrc storagenode_updater_config_dir="$CONFIG_DIR"
-sysrc storagenode_updater_identity_dir="$IDENTITY_DIR"
+CONFIG_FILE="${CONFIG_DIR}/config.yaml"
+if [ ! -f "${CONFIG_FILE}" ]; then
+  echo "Running storagenode setup"
+  su -m storagenode -c "storagenode setup \
+    --storage.path \"${STORAGE_PATH}\" \
+    --config-dir \"${CONFIG_DIR}\" \
+    --identity-dir \"${IDENTITY_DIR}\" \
+    --operator.email \"${OPERATOR_EMAIL}\" \
+    --console.address \"${CONSOLE_ADDRESS}\" \
+    --operator.wallet \"${OPERATOR_WALLET}\" \
+    --operator.wallet-features \"${OPERATOR_WALLET_FEATURES}\" \
+    --contact.external-address \"${CONTACT_EXTERNAL_ADDRESS}\" \
+    --storage.allocated-disk-space \"${STORAGE_ALLOCATED_DISK_SPACE}\" \
+    --storage2.database-dir \"${DATABASE_DIR}\"" || {
+      echo "Error: storagenode setup failed"
+      exit 1
+  }
+else
+  echo "Config already exists — preserving"
+fi
 
-# --- Enable + start services ---
-for svc in storagenode storagenode_updater newsyslog netwait; do
-    sysrc "${svc}_enable=YES"
-    service "$svc" restart || die "Failed to start $svc"
-done
+# Configure services
+sysrc netwait_ip="${NETWAIT_IP}"
+sysrc storagenode_identity_dir="${IDENTITY_DIR}"
+sysrc storagenode_config_dir="${CONFIG_DIR}"
+sysrc storagenode_storage_path="${STORAGE_PATH}"
+sysrc storagenode_updater_config_dir="${CONFIG_DIR}"
+sysrc storagenode_updater_identity_dir="${IDENTITY_DIR}"
 
-log "Installation completed successfully."
-log "Check services with:"
-log "  service storagenode status"
-log "  service storagenode_updater status"
+echo "Enabling services"
+service storagenode enable || exit 1
+service storagenode_updater enable || exit 1
+service newsyslog enable || exit 1
+service netwait enable || exit 1
+
+echo "Starting services"
+service storagenode start || exit 1
+service storagenode_updater start || exit 1
+service newsyslog start || exit 1
+service netwait start || exit 1
+
+echo "Installation completed successfully!"
